@@ -163,12 +163,85 @@ def quebrados(links, mapa_de_rotas):
     return faltando
 
 
-def exigem_sessao(links, mapa_de_rotas):
+def achar_porteiro(raiz):
+    """Como este projeto decide se uma rota exige sessao.
+
+    Devolve {"modo", "onde", "publicas", "cobre_tudo"} ou None.
+
+    🔴 SAO DOIS MODELOS, E ELES SE LEEM AO CONTRARIO
+    -------------------------------------------------
+    `nega-por-omissao` — um middleware cobre tudo e uma LISTA DE PUBLICAS abre
+    exceções. E' o modelo recomendado em seguranca, e e' o que um detector
+    ingenuo nao ve: ele procura marca de autenticacao DENTRO da rota, e nao ha
+    nenhuma, porque a rota protegida e' justamente a que ninguem mencionou.
+
+    `permite-por-omissao` — cada rota ou grupo se protege sozinho, com marca de
+    sessao no proprio arquivo ou no layout acima.
+
+    Medido em num caso medido: a primeira versao desta funcao so conhecia o segundo
+    modelo, rodou contra um projeto do primeiro e devolveu ZERO rota protegida
+    num site onde metade exige login. Nao errou por pouco: errou o sentido da
+    pergunta. Um detector que responde "publica" sobre rota que pede senha
+    entrega auditoria errada na cara de um cliente.
+    """
+    # 1. existe middleware, e ele cobre tudo?
+    caminhos = [os.path.join(raiz, "middleware.ts"),
+                os.path.join(raiz, "middleware.js"),
+                os.path.join(raiz, "src", "middleware.ts")]
+    mid = next((c for c in caminhos if os.path.isfile(c)), None)
+    cobre_tudo = False
+    if mid:
+        txt = _ler(mid)
+        m = re.search(r"matcher\s*:\s*\[(.*?)\]", txt, re.S)
+        if m:
+            # um matcher que casa a raiz com negative lookahead cobre o site
+            cobre_tudo = "(?!" in m.group(1) or '"/:path*"' in m.group(1)
+
+    # 2. existe lista de publicas declarada?
+    publicas, onde = set(), None
+    for caminho in _arquivos(raiz, (".ts", ".tsx", ".js")):
+        txt = _ler(caminho)
+        for m in re.finditer(
+                r"(?:const|export const)\s+(\w*PUBLIC\w*|\w*PUBLIC[AO]S?\w*)"
+                r"\s*(?::[^=]+)?=\s*\[(.*?)\]", txt, re.S | re.I):
+            rotas = re.findall(r'["\'](/[^"\']*)["\']', m.group(2))
+            if len(rotas) >= 3:          # 3 ou mais: e' lista de rotas, nao acaso
+                publicas.update(r.rstrip("/") or "/" for r in rotas)
+                onde = onde or os.path.basename(caminho)
+
+    if cobre_tudo and publicas:
+        return {"modo": "nega-por-omissao", "onde": onde,
+                "publicas": publicas, "cobre_tudo": True}
+    if publicas:
+        return {"modo": "nega-por-omissao-parcial", "onde": onde,
+                "publicas": publicas, "cobre_tudo": False}
+    return None
+
+
+def exigem_sessao(links, mapa_de_rotas, raiz=None):
     """Dos links dados, quais caem em rota que pede login.
 
-    Olha o arquivo da rota E as pastas acima, porque em Next o layout protege
-    a subarvore inteira — e e' assim que a protecao costuma ser feita.
+    Le o porteiro do projeto antes de decidir. Sem raiz, cai no modelo antigo
+    (marca de sessao no arquivo ou no layout acima), que so enxerga o modelo
+    `permite-por-omissao`.
     """
+    porteiro = achar_porteiro(raiz) if raiz else None
+
+    if porteiro and porteiro["publicas"]:
+        publicas = porteiro["publicas"]
+        privados = []
+        for l in links:
+            rota = l.rstrip("/") or "/"
+            if rota in publicas:
+                continue
+            # prefixo publico protege a subarvore: `/blog` abre `/blog/post-1`
+            if any(rota.startswith(p + "/") for p in publicas if p != "/"):
+                continue
+            if rota in mapa_de_rotas or any(
+                    _casa_dinamica(rota, r) for r in mapa_de_rotas if "[" in r):
+                privados.append((l, porteiro["onde"]))
+        return privados
+
     privados = []
     for l in links:
         arquivo = mapa_de_rotas.get(l)

@@ -88,6 +88,44 @@ pior quadro, porque medir um só não decide nada. O mesmo texto pode ir de 5,29
 Link interno que não resolve. Ausência de pixel, de analytics ou de gravador de sessão. URL
 absoluta servindo recurso em tempo de execução.
 
+### Quem decide se uma rota exige login, e por que isso engana
+
+Há dois modelos, e eles se leem ao contrário.
+
+No primeiro, cada rota se protege sozinha, com uma marca de sessão no próprio arquivo ou no layout
+acima dela. No segundo, um middleware cobre o site inteiro e uma lista de caminhos públicos abre as
+exceções. O segundo é o recomendado em segurança, e é o que engana um detector ingênuo: ele procura
+marca de autenticação dentro da rota, não acha nenhuma, e conclui que a rota é pública. Só que a
+rota protegida ali é justamente aquela que ninguém mencionou.
+
+A esteira lê o porteiro do projeto antes de responder. Num caso real, a primeira versão devolveu
+zero rota protegida num site onde quase cinquenta exigiam login. Não errou por pouco: errou o
+sentido da pergunta.
+
+E há uma regra que vem junto, na direção contrária: caminho público abre a subárvore inteira. Se
+`/blog` é público, `/blog/um-post` também é. Sem isso, todo artigo do blog vira rota privada no
+relatório, e quem recebe conserta o que não estava quebrado.
+
+---
+
+## Legibilidade não é compreensão, e o número está medido
+
+A mesma página, medida duas vezes por instrumentos diferentes:
+
+| O que se mediu | Resultado |
+|---|---|
+| Legibilidade (índice Flesch adaptado) | 68,7 — faixa "fácil" |
+| Compreensão (leitor sem contexto) | 3 de 10 |
+
+Fácil de ler, e não diz o que a empresa faz.
+
+As duas coisas são verdadeiras ao mesmo tempo, e nenhum ajuste de limiar na régua de forma acha o
+segundo problema, porque ele não é de forma. É por isso que o leitor frio é uma camada separada, e
+não uma métrica a mais.
+
+⚠️ Quando ela existir, precisa ser calibrada antes de valer como reprovação: rodar contra página
+que já converteu, e não acusá-la. Regra que acusa peça aprovada está errada, não a peça.
+
 ---
 
 ## O detector de que mais me orgulho

@@ -36,7 +36,7 @@ import json
 import os
 import sys
 
-from esteira import medidas
+from esteira import lentes, medidas
 from esteira.gate import (ACUSOU, NAO_MEDIR, NAO_USAR, OK, Achado,
                           carregar_reguas, escrever_saida, gate_forma,
                           gate_legibilidade)
@@ -83,6 +83,24 @@ def lentes_aplicaveis(mentes, contexto):
 
 def grupos_cobertos(aplicaveis):
     return {m["grupo"] for m in aplicaveis}
+
+
+def dossies(trechos, fatos, contexto, mentes=None):
+    """Os dossies da Camada 3: um por lente aplicavel, mais as declaracoes.
+
+    E' a ponte entre esta camada e `esteira/lentes.py`. Quem chama entrega os
+    dossies ao LLM, recebe os achados de volta e passa em `lentes.consolidar`,
+    que recusa o que vier sem evidencia citada.
+    """
+    mentes = mentes or carregar_mentes() or {}
+    aplicaveis, fora = lentes_aplicaveis(mentes, contexto)
+    pre = lentes.pre_achados(trechos)
+    return {
+        "dossies": [lentes.dossie_de(m, trechos, fatos, pre) for m in aplicaveis],
+        "inaplicaveis": fora,
+        "grupos": sorted(grupos_cobertos(aplicaveis)),
+        "pre_achados": pre,
+    }
 
 
 def medir_candidata(texto, peca, reguas=None):

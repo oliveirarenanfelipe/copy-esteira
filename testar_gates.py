@@ -33,6 +33,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from esteira import medidas                                    # noqa: E402
+from esteira import lentes, varredura                          # noqa: E402
 from esteira.corpus import colher, colher_marcado              # noqa: E402
 from esteira.gate import (                                     # noqa: E402
     ACUSOU, NAO_MEDIR, NAO_USAR, OK, avaliar, escrever_saida,
@@ -206,6 +207,76 @@ def test_MUTACAO_a_trava_da_camada_0():
 
 
 # ══════════════════════════════════════════════════════════════════════
+# 2-b. O PORTEIRO — quem decide se uma rota exige sessao
+# ══════════════════════════════════════════════════════════════════════
+#
+# 🔴 Ha DOIS modelos, e eles se leem ao contrario:
+#
+#   nega-por-omissao   -> middleware cobre tudo, uma LISTA DE PUBLICAS abre
+#                         excecoes. A rota protegida e' a que ninguem cita.
+#   permite-por-omissao -> cada rota se protege sozinha, com marca de sessao.
+#
+# A primeira versao deste detector so conhecia o segundo. Rodou contra um
+# projeto do primeiro e devolveu ZERO rota protegida num site onde metade
+# exige login. Nao errou por pouco: errou o sentido da pergunta.
+
+def _projeto_nega_por_omissao(base):
+    """Monta um projeto Next.js sintetico no modelo deny-by-default."""
+    app = base / "src" / "app"
+    for rota in ("", "blog", "painel", "faturas"):
+        pasta = app / rota if rota else app
+        pasta.mkdir(parents=True, exist_ok=True)
+        (pasta / "page.tsx").write_text(
+            "export default function P(){return <div>oi</div>}", encoding="utf-8")
+    (base / "middleware.ts").write_text(
+        'export const config = { matcher: ["/((?!_next/static).*)"] };',
+        encoding="utf-8")
+    lib = base / "src" / "lib"
+    lib.mkdir(parents=True, exist_ok=True)
+    (lib / "public-paths.ts").write_text(
+        'export const PUBLIC_PATHS = ["/", "/blog", "/login", "/precos"];',
+        encoding="utf-8")
+    return base
+
+
+def test_MUTACAO_porteiro_nega_por_omissao(tmp_path):
+    base = _projeto_nega_por_omissao(tmp_path)
+    raiz = str(base)
+    mapa = varredura.rotas(raiz)
+
+    porteiro = varredura.achar_porteiro(raiz)
+    assert porteiro is not None, "nao achou o porteiro"
+    assert porteiro["modo"] == "nega-por-omissao", porteiro
+    assert porteiro["cobre_tudo"] is True
+
+    # integro: o que NAO esta na lista publica exige sessao
+    priv = dict(varredura.exigem_sessao(
+        ["/blog", "/painel", "/faturas"], mapa, raiz=raiz))
+    assert "/painel" in priv, priv
+    assert "/faturas" in priv, priv
+
+    # QUEBRADO: some a lista de publicas, e o detector perde o porteiro
+    (base / "src" / "lib" / "public-paths.ts").write_text(
+        "export const NADA = 1;", encoding="utf-8")
+    assert varredura.achar_porteiro(raiz) is None
+
+
+def test_porteiro_permite_por_omissao_ainda_funciona(tmp_path):
+    """O modelo antigo nao pode ter sido perdido no conserto."""
+    app = tmp_path / "src" / "app" / "conta"
+    app.mkdir(parents=True, exist_ok=True)
+    (app / "page.tsx").write_text("export default function P(){}", encoding="utf-8")
+    (app / "layout.tsx").write_text(
+        "const s = await getServerSession(); export default function L(){}",
+        encoding="utf-8")
+    raiz = str(tmp_path)
+    mapa = varredura.rotas(raiz)
+    assert varredura.achar_porteiro(raiz) is None       # sem lista publica
+    priv = varredura.exigem_sessao(["/conta"], mapa, raiz=raiz)
+    assert priv and priv[0][0] == "/conta", priv
+
+
+# ══════════════════════════════════════════════════════════════════════
 # 3. D-13 — a ocorrencia LEGITIMA nao pode reprovar
 # ══════════════════════════════════════════════════════════════════════
 
@@ -231,6 +302,34 @@ def test_host_parecido_nao_entra_pela_lista_de_permitidos():
     assert gate_cdn_de_terceiro(html, False)[0].veredito == "reprova"
 
 
+def test_falso_positivo_rota_publica_NAO_pode_virar_rota_protegida(tmp_path):
+    """🔴 O erro que constrange: dizer que pede login uma pagina que e' aberta.
+
+    Este projeto nasceu de uma auditoria entregue a um cliente. Reportar como
+    privada uma rota publica e' afirmacao errada na cara dele, e e' pior que
+    nao achar nada: quem recebe conserta o que nao estava quebrado.
+    """
+    base = _projeto_nega_por_omissao(tmp_path)
+    raiz = str(base)
+    mapa = varredura.rotas(raiz)
+    priv = dict(varredura.exigem_sessao(
+        ["/", "/blog", "/login", "/precos"], mapa, raiz=raiz))
+    for publica in ("/", "/blog", "/login", "/precos"):
+        assert publica not in priv, "%s esta na lista publica e foi acusada" % publica
+
+
+def test_prefixo_publico_abre_a_subarvore(tmp_path):
+    """`/blog` publico abre `/blog/um-post`. Sem isto, todo post vira privado."""
+    base = _projeto_nega_por_omissao(tmp_path)
+    post = base / "src" / "app" / "blog" / "um-post"
+    post.mkdir(parents=True, exist_ok=True)
+    (post / "page.tsx").write_text("export default function P(){}", encoding="utf-8")
+    raiz = str(base)
+    mapa = varredura.rotas(raiz)
+    priv = dict(varredura.exigem_sessao(["/blog/um-post"], mapa, raiz=raiz))
+    assert "/blog/um-post" not in priv, priv
+
+
 def test_falso_positivo_imperativo_no_meio_da_frase_nao_conta():
     """So conta imperativo que ABRE a frase. `Quem compra bem, economiza`
     nao e' chamada de acao, e contar isso inflaria a metrica."""
@@ -238,6 +337,86 @@ def test_falso_positivo_imperativo_no_meio_da_frase_nao_conta():
     achado = [a for a in gate_forma(texto, {"imper": 0.0}, FOLGAS)
               if a.gate == "forma:imper"][0]
     assert achado.veredito == "passa", achado.linha()
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 3-b. CAMADA 3 — o executor das mentes
+# ══════════════════════════════════════════════════════════════════════
+
+def _trecho(texto, fonte="pagina.tsx", linha=1):
+    from esteira.corpus import Trecho
+    return Trecho(texto, fonte, linha)
+
+
+def test_MUTACAO_achado_sem_evidencia_e_RECUSADO():
+    """Sem citacao, a conclusao vale zero (R1). Integro passa, quebrado cai."""
+    integro = lentes.Achado("hopkins-especificidade", "oficio-de-texto",
+                            "toda alegacao carrega numero",
+                            "a promessa nao diz quanto", "pagina.tsx:12", "alta")
+    ok, motivo = lentes.validar(integro)
+    assert ok, motivo
+
+    quebrado = lentes.Achado("hopkins-especificidade", "oficio-de-texto",
+                             "toda alegacao carrega numero",
+                             "a promessa nao diz quanto", "", "alta")
+    ok2, motivo2 = lentes.validar(quebrado)
+    assert not ok2 and "evidencia" in motivo2, motivo2
+
+
+def test_evidencia_que_nao_bate_com_o_material_e_recusada():
+    """A lente tende a inventar fonte quando nao recebeu uma. Isso e' barrado."""
+    a = lentes.Achado("ogilvy-prova", "arquitetura-da-oferta", "alegacao pede prova",
+                      "nao ha prova", "inventado.tsx:99", "media")
+    ok, motivo = lentes.validar(a, fontes_validas={"pagina.tsx:12"})
+    assert not ok and "nao bate" in motivo, motivo
+
+
+def test_consolidar_acusa_quando_so_UM_grupo_rodou():
+    """A D-05 exige os dois grupos; rodar um e' o erro que ela nomeia."""
+    so_um = [lentes.Achado("halbert-registro", "oficio-de-texto", "r",
+                           "soa como empresa", "pagina.tsx:3", "media")]
+    r = lentes.consolidar(so_um, [])
+    assert r["faltando"], r
+    assert "D-05" in r["faltando"][0]
+
+    dois = so_um + [lentes.Achado("brown-mecanismo", "arquitetura-da-oferta",
+                                  "r", "sem mecanismo", "pagina.tsx:5", "alta")]
+    r2 = lentes.consolidar(dois, [])
+    assert not r2["faltando"], r2["faltando"]
+
+
+def test_declaracao_de_inaplicabilidade_CONTA_como_grupo(tmp_path):
+    """D-06: a lente que se declara fora nao some, e o grupo dela rodou."""
+    inap = [("ogilvy-prova", "arquitetura-da-oferta", "produto sem cliente")]
+    achados = [lentes.Achado("halbert-registro", "oficio-de-texto", "r",
+                             "soa como empresa", "pagina.tsx:3", "media")]
+    r = lentes.consolidar(achados, inap)
+    assert not r["faltando"], r["faltando"]
+    assert len(r["inaplicaveis"]) == 1
+    assert "D-06" in lentes.impressao(r)
+
+
+def test_pre_achados_entrega_alegacao_sem_numero_com_a_fonte():
+    """Insumo mecanico: o que um regex conta melhor que um LLM."""
+    trechos = [
+        _trecho("Somos a melhor plataforma do mercado.", "home.tsx", 10),
+        _trecho("Reduz o custo em 32% no primeiro mes.", "home.tsx", 20),
+        _trecho("O time atende de segunda a sexta.", "home.tsx", 30),
+    ]
+    pre = lentes.pre_achados(trechos)
+    sem_numero = [t for t, _ in pre["alegacoes_sem_numero"]]
+    assert "Somos a melhor plataforma do mercado." in sem_numero
+    assert not any("32%" in t for t in sem_numero)   # essa TEM numero
+    assert pre["alegacoes_sem_numero"][0][1] == "home.tsx:10"
+
+
+def test_dossie_carrega_a_instrucao_da_D06_e_nao_pede_texto_final():
+    lente = {"id": "x", "grupo": "oficio-de-texto", "lente": "p",
+             "regua": "r", "nao_serve_para": "peca tecnica"}
+    d = lentes.dossie_de(lente, [_trecho("O preco aparece na pagina.")], {})
+    assert "DECLARE" in d["instrucao"]
+    assert "NAO escreve a copy final" in d["instrucao"]
+    assert d["quando_nao_serve"] == "peca tecnica"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -306,7 +485,7 @@ def test_MUTACAO_do_veredito_inteiro(tmp_path):
     integra.write_text(
         "O sol paga a sua conta de luz.\n\n"
         "A placa gera de dia e voce usa a noite.\n\n"
-        "O preco cabe no bolso do eletricista.\n", encoding="utf-8")
+        "O preco cabe no orcamento do mes.\n", encoding="utf-8")
     achados, cod = avaliar(str(integra), "x", reguas=reguas)
     assert cod == OK, [a.linha() for a in achados]
 
