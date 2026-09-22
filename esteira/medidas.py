@@ -13,7 +13,7 @@ julgamento e' da Camada 3. Aqui so se mede.
 JA EXISTIA ALGO ASSIM? Sim, e a F0 o avaliou: `um auditor de copy anterior`
 mede as mesmas seis metricas de forma. Veredito: ADOTAR o medidor, DESCARTAR o
 veredito. Tres motivos, todos medidos:
-  1. os ALVOS de la (`:108-133`) sao do um funil de produto, e a D-01 os mantem fora daqui;
+  1. os ALVOS de la (`:108-133`) sao do um produto anterior, e a D-01 os mantem fora daqui;
   2. ele nunca reprova — `:731` e' `return 0` incondicional;
   3. nao tem legibilidade em portugues nem contraste.
 Alem disso mora em projeto privado alheio, que este repositorio nao importa.
@@ -110,7 +110,7 @@ def legibilidade(texto):
 
 # ── metricas de forma ───────────────────────────────────────────────────────
 # As seis do `o auditor anterior:108-133`, que sao a parte da Etapa-3 que
-# generaliza. Os ALVOS de la NAO vieram junto: sao do um funil de produto, e a D-01 os
+# generaliza. Os ALVOS de la NAO vieram junto: sao do um produto anterior, e a D-01 os
 # mantem fora. Aqui so se mede; o alvo vem do registro de reguas, em dados.
 SEGUNDA_PESSOA = re.compile(
     r"\b(voc[êe]s?|teu|tua|teus|tuas|seu|sua|seus|suas|te|ti|contigo|"

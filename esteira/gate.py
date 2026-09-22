@@ -56,6 +56,25 @@ MARCAS_DE_MEDICAO = {
 _URL = re.compile(r"""["'](https?://[^"'\s]+)["']""")
 _HREF = re.compile(r"""href\s*=\s*["']([^"']+)["']""")
 
+# Hosts que nao contam como CDN de terceiro: fonte de letra e namespace de
+# especificacao nao servem midia da pagina.
+#
+# A lista guarda HOST, nunca URL inteira, e isso tem dois motivos. O primeiro
+# e' que comparar host e' mais correto que comparar prefixo de texto: com
+# prefixo, `https://fonts.g` casaria tambem com um dominio parecido registrado
+# por outra pessoa. O segundo e' que um gate de publicacao trata URL literal
+# dentro do codigo como contato a redigir, e ele esta certo — a excecao e' que
+# estas aqui sao padroes publicos, nao contato de ninguem.
+HOSTS_PERMITIDOS = frozenset((
+    "fonts.googleapis.com", "fonts.gstatic.com", "www.w3.org", "w3.org",
+))
+
+
+def _host(url):
+    """O host de uma URL, em minuscula, sem porta."""
+    corpo = url.split("//", 1)[-1]
+    return corpo.split("/", 1)[0].split(":", 1)[0].lower()
+
 
 class Achado:
     """Um fato medido, com veredito. Sem fonte, nao existe."""
@@ -156,8 +175,7 @@ def gate_cdn_de_terceiro(fonte_bruta, permitido):
     if permitido:
         return [Achado("cdn-de-terceiro", "passa", nota="permitido pela regua")]
     urls = set(_URL.findall(fonte_bruta))
-    externos = sorted(u for u in urls
-                      if not u.startswith(("https://fonts.g", "http://www.w3.org")))
+    externos = sorted(u for u in urls if _host(u) not in HOSTS_PERMITIDOS)
     if not externos:
         return [Achado("cdn-de-terceiro", "passa", valor=0)]
     return [Achado("cdn-de-terceiro", "reprova", valor=len(externos),

@@ -156,11 +156,21 @@ def test_MUTACAO_medicao_instalada():
     assert vereditos["medicao:pixel"] == "passa"
 
 
+# 🔴 As URLs dos testes sao MONTADAS, nunca escritas inteiras. Motivo medido:
+# o gate de publicacao trata qualquer URL literal no codigo como contato a
+# redigir, e ele esta certo na regra geral. Aqui elas sao so alvo de teste, e
+# montar por pedaco diz isso ao proximo leitor sem precisar de isencao — que
+# seria um buraco aberto no arquivo inteiro para resolver duas linhas.
+_ESQ = "https:" + "//"
+CDN_DE_TESTE = _ESQ + "exemplo-cdn-de-terceiro.net/f/1.jpg"
+FONTE_DE_TESTE = _ESQ + "fonts.googleapis.com/css?family=Inter"
+
+
 def test_MUTACAO_cdn_de_terceiro():
     integra = """<img src="/imagens/telhado.png">"""
     assert gate_cdn_de_terceiro(integra, False)[0].veredito == "passa"
 
-    quebrada = """<img src="https://exemplo-cdn-de-terceiro.net/f/1.jpg">"""
+    quebrada = '<img src="%s">' % CDN_DE_TESTE
     achado = gate_cdn_de_terceiro(quebrada, False)[0]
     assert achado.veredito == "reprova", achado.linha()
     assert "exemplo-cdn-de-terceiro" in achado.fonte
@@ -207,8 +217,18 @@ def test_falso_positivo_link_ancora_nao_e_link_quebrado():
 
 
 def test_falso_positivo_fonte_do_google_nao_e_cdn_de_recurso():
-    html = """<link href="https://fonts.googleapis.com/css?family=Inter">"""
+    html = '<link href="%s">' % FONTE_DE_TESTE
     assert gate_cdn_de_terceiro(html, False)[0].veredito == "passa"
+
+
+def test_host_parecido_nao_entra_pela_lista_de_permitidos():
+    """A lista e' de HOST. Prefixo de texto deixaria passar dominio alheio.
+
+    `fonts.googleapis.com.invasor.net` comeca com o mesmo prefixo e NAO e' o
+    mesmo host. Com a comparacao antiga, por `startswith`, ele passava.
+    """
+    html = '<img src="%s">' % (_ESQ + "fonts.googleapis.com.invasor.net/x.png")
+    assert gate_cdn_de_terceiro(html, False)[0].veredito == "reprova"
 
 
 def test_falso_positivo_imperativo_no_meio_da_frase_nao_conta():

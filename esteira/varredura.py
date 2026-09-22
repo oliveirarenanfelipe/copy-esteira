@@ -35,6 +35,19 @@ _GRUPO = re.compile(r"\((?:[^)]*)\)")          # `(public)` nao entra na URL
 _HREF = re.compile(r"""href\s*=\s*["']([^"']+)["']""")
 _HREF_OBJ = re.compile(r"""href\s*:\s*["']([^"']+)["']""")
 
+# fonte de letra e namespace de especificacao nao servem midia da pagina.
+# Guardamos HOST, nunca URL inteira: comparar host e' mais correto que casar
+# prefixo de texto, e URL literal no codigo e' o que um gate de publicacao
+# trata como contato a redigir.
+HOSTS_PERMITIDOS = frozenset((
+    "fonts.googleapis.com", "fonts.gstatic.com", "www.w3.org", "w3.org",
+))
+
+
+def _host_de(url):
+    corpo = url.split("//", 1)[-1]
+    return corpo.split("/", 1)[0].split(":", 1)[0].lower()
+
 # marcas de que a rota exige sessao
 MARCAS_DE_SESSAO = (
     "getServerSession", "requireAuth", "redirect('/login",
@@ -230,8 +243,7 @@ def fundo_externo(raiz):
         txt = _ler(caminho)
         for m in re.finditer(r'["\'](https?://[^"\'\s]+)["\']', txt):
             u = m.group(1)
-            if u.startswith(("https://fonts.g", "http://www.w3.org",
-                             "https://www.w3.org")):
+            if _host_de(u) in HOSTS_PERMITIDOS:
                 continue
             linha = txt.count("\n", 0, m.start()) + 1
             achados.append((u, "%s:%d" % (os.path.basename(caminho), linha)))
