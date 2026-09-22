@@ -109,7 +109,7 @@ def legibilidade(texto):
 
 
 # ── metricas de forma ───────────────────────────────────────────────────────
-# As seis do `o auditor anterior:108-133`, que sao a parte da Etapa-3 que
+# As seis do `o auditor anterior:108-133`, que sao a parte da um projeto anterior que
 # generaliza. Os ALVOS de la NAO vieram junto: sao do um produto anterior, e a D-01 os
 # mantem fora. Aqui so se mede; o alvo vem do registro de reguas, em dados.
 SEGUNDA_PESSOA = re.compile(

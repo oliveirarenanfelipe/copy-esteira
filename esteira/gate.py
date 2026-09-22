@@ -60,11 +60,11 @@ _HREF = re.compile(r"""href\s*=\s*["']([^"']+)["']""")
 # especificacao nao servem midia da pagina.
 #
 # A lista guarda HOST, nunca URL inteira, e isso tem dois motivos. O primeiro
-# e' que comparar host e' mais correto que comparar prefixo de texto: com
-# prefixo, `https://fonts.g` casaria tambem com um dominio parecido registrado
-# por outra pessoa. O segundo e' que um gate de publicacao trata URL literal
-# dentro do codigo como contato a redigir, e ele esta certo — a excecao e' que
-# estas aqui sao padroes publicos, nao contato de ninguem.
+# e' que comparar host e' mais correto que casar prefixo de texto: um prefixo
+# curto casa tambem com dominio parecido que outra pessoa registrou, e ha um
+# teste so para esse caso. O segundo e' que um gate de publicacao trata URL
+# literal dentro do codigo como contato a redigir, e ele esta certo na regra
+# geral — estas aqui sao padroes publicos, nao contato de ninguem.
 HOSTS_PERMITIDOS = frozenset((
     "fonts.googleapis.com", "fonts.gstatic.com", "www.w3.org", "w3.org",
 ))
