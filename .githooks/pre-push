@@ -1,0 +1,42 @@
+#!/bin/sh
+# O GATE NA PORTA DO PUSH — Python puro, zero dependencia.
+#
+# Exigencia da trava DURA: este projeto le material de cliente, e o alvo e'
+# um repositorio publico. A protecao de branch com verificacao obrigatoria
+# seria melhor, mas NAO existe em repositorio privado de conta gratuita: a
+# API devolve `403 Upgrade to GitHub Pro or make this repository public`.
+#
+# Entao a saida e' esta, e a fraqueza dela fica declarada em vez de escondida:
+# roda na maquina, se contorna com `--no-verify`, e nao protege o que vem de
+# fora. E' o que existe de graca hoje, e e' melhor que nada.
+#
+# COMO LIGAR, uma vez por clone:
+#
+#     git config core.hooksPath .githooks
+#
+# ⚠️ ELE DEPENDE DE ALGUEM RODAR A LINHA ACIMA. Quem nao rodar fica sem gate,
+# em silencio. A defesa que nao depende de ninguem lembrar e' o CI, que roda
+# em toda push. Este hook existe para dar a resposta ANTES de gastar uma
+# rodada de CI, nao para substitui-la.
+
+set -e
+
+PY=python
+command -v python >/dev/null 2>&1 || PY=python3
+
+if [ ! -f testar_gates.py ]; then
+    echo "pre-push: \`testar_gates.py\` nao encontrado." >&2
+    echo "pre-push: rode o push da raiz do repositorio." >&2
+    exit 1
+fi
+
+echo "pre-push: rodando a suite..."
+if ! "$PY" -B testar_gates.py; then
+    echo "" >&2
+    echo "pre-push: a suite REPROVOU. Nada foi empurrado." >&2
+    echo "pre-push: conserte o teste, ou apague-o se ele nao vale mais." >&2
+    echo "pre-push: nao afrouxe o comando." >&2
+    exit 1
+fi
+
+echo "pre-push: suite passou."

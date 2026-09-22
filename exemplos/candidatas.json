@@ -1,0 +1,48 @@
+{
+  "_leia": [
+    "EXEMPLO de entrada para a Camada 5:",
+    "",
+    "    python -m esteira.criar exemplos/candidatas.json --peca pagina-de-vendas",
+    "",
+    "As candidatas sao escritas por quem escreve (voce, ou um LLM na sua",
+    "gramatica). Esta peca NAO as inventa: ela aplica as lentes, exige a",
+    "declaracao de inaplicabilidade e VETA as que nao passam nos gates.",
+    "",
+    "O `contexto` decide quais lentes se aplicam. `tem_prova: false` faz a",
+    "lente de prova se declarar inaplicavel, em vez de cobrar prova de um",
+    "produto que ainda nao tem cliente.",
+    "",
+    "⚠️ A ultima candidata abaixo esta ilegivel DE PROPOSITO, para voce ver o",
+    "gate reprovando a propria copy da esteira. Regua que vale so para os",
+    "outros nao e' regua, e' opiniao."
+  ],
+
+  "contexto": {
+    "tipo_de_produto": "curso online",
+    "tem_oferta": true,
+    "tem_prova": false
+  },
+
+  "candidatas": [
+    {
+      "molde": "situacao-do-leitor",
+      "lente": "collier-entrada",
+      "texto": "Voce faz o servico bem feito e mesmo assim perde a obra no preco. O problema nao e' o seu trabalho."
+    },
+    {
+      "molde": "problema-com-mecanismo",
+      "lente": "brown-mecanismo",
+      "texto": "Orcamento chutado perde dinheiro nos dois lados. Alto demais, voce nao pega. Baixo demais, voce trabalha de graca."
+    },
+    {
+      "molde": "contraste-de-caminho",
+      "lente": "schwartz-consciencia",
+      "texto": "Tabela pronta serve para a media. O seu custo nao e' a media. Da para calcular o seu em uma tarde."
+    },
+    {
+      "molde": "problema-com-mecanismo",
+      "lente": "halbert-registro",
+      "texto": "A implementacao de metodologias multidisciplinares pressupoe necessariamente a consideracao criteriosa das particularidades inerentes aos paradigmas organizacionais contemporaneos."
+    }
+  ]
+}

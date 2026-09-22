@@ -1,0 +1,38 @@
+# Roda a suite deste repositorio, em toda push e em toda PR.
+#
+# Se ficar vermelho, o teste quebrou. Nao afrouxe o comando: conserte o teste,
+# ou apague-o se ele nao vale mais.
+#
+# 🔴 `testar_gates.py` roda nos dois modos DE PROPOSITO. Sem o bloco
+# `__main__` dele, este comando sairia 0 sem executar um unico teste, porque
+# as funcoes `test_*` so seriam definidas e nunca chamadas. Isso foi medido, e
+# o CI teria ficado verde para sempre provando nada.
+#
+# Esta e' a defesa que NAO depende de ninguem lembrar de ligar nada. O hook
+# `pre-push` e' a segunda camada, e depende de um `git config` por clone.
+name: testes
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # o nucleo nao tem dependencia, entao a promessa de "roda com a
+        # biblioteca padrao" precisa ser verdade em mais de uma versao
+        python: ['3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Suite
+        run: python -B testar_gates.py

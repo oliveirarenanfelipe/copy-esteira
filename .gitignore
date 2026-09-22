@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# a pasta de saida da propria esteira: ela guarda auditoria de material que
+# voce analisou, e material analisado costuma ser de cliente
+saida/
+_reprovados/
+
+node_modules/
+.env

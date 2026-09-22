@@ -1,0 +1,98 @@
+{
+  "_leia": [
+    "O REGISTRO DE REGUAS — em DADOS, nunca no codigo (R7).",
+    "",
+    "Cada tipo de peca tem a SUA regua. Uma regua unica reprovaria justamente",
+    "a peca que esta certa: a pagina de captura deve ter ZERO pergunta,",
+    "enquanto a de vendas deve ter cerca de sete por cento. Medido e escrito",
+    "em `o auditor anterior:105-107`, no projeto do um funil de produto.",
+    "",
+    "🔴 OS ALVOS AQUI NASCEM VAZIOS, E ISSO E' DE PROPOSITO (D-01, D-03).",
+    "Os numeros do um funil de produto sao ativo daquele produto e nao saem de la. Quem",
+    "clonar este repositorio enche com o corpus DELE, pelo metodo do §1 da",
+    "gramatica: medir as pecas que ja funcionaram e extrair o alvo.",
+    "",
+    "Alvo `null` significa 'nao ha regua medida para isto'. O gate NAO",
+    "reprova por alvo nulo: ele declara que nao mediu. Inventar numero aqui",
+    "seria a casca que a F0 mandou nao repetir."
+  ],
+
+  "_metricas": {
+    "pf": "palavras por frase",
+    "curtas": "por cento de frases com ate 6 palavras",
+    "perg": "por cento de perguntas sobre o total de frases",
+    "seg": "por cento de marcas de segunda pessoa",
+    "imper": "por cento de frases que abrem em imperativo",
+    "trav": "travessoes por 100 palavras",
+    "ilf": "indice Flesch adaptado ao portugues (Martins et al., 1996)"
+  },
+
+  "_folgas": {
+    "_leia": [
+      "Tolerancia por metrica, e ela e' ASSIMETRICA de proposito.",
+      "Herdada de `o auditor anterior:516-523`, que ja tinha medido que um",
+      "generico de mais ou menos dez por cento reprova o certo e passa o",
+      "errado. So o lado que importa e' vigiado: frase longa demais reprova,",
+      "frase curta demais nao."
+    ],
+    "pf": {"acima": 2.0, "abaixo": null},
+    "curtas": {"acima": null, "abaixo": 15.0},
+    "perg": {"acima": 10.0, "abaixo": null},
+    "seg": {"acima": null, "abaixo": 15.0},
+    "imper": {"acima": 12.0, "abaixo": null},
+    "trav": {"acima": 15.0, "abaixo": null},
+    "ilf": {"acima": null, "abaixo": 20.0}
+  },
+
+  "pecas": {
+    "pagina-de-vendas": {
+      "rotulo": "pagina de vendas",
+      "alvos": {"pf": null, "curtas": null, "perg": null, "seg": null,
+                "imper": null, "trav": null, "ilf": null},
+      "fonte": "vazio — encher com o corpus de quem clonar"
+    },
+    "pagina-de-captura": {
+      "rotulo": "pagina de captura",
+      "alvos": {"pf": null, "curtas": null, "perg": null, "seg": null,
+                "imper": null, "trav": null, "ilf": null},
+      "fonte": "vazio — encher com o corpus de quem clonar"
+    },
+    "pagina-institucional": {
+      "rotulo": "pagina institucional ou home de produto",
+      "alvos": {"pf": null, "curtas": null, "perg": null, "seg": null,
+                "imper": null, "trav": null, "ilf": null},
+      "fonte": "vazio — encher com o corpus de quem clonar"
+    },
+    "email": {
+      "rotulo": "corpo de e-mail",
+      "alvos": {"pf": null, "curtas": null, "perg": null, "seg": null,
+                "imper": null, "trav": null, "ilf": null},
+      "fonte": "vazio — encher com o corpus de quem clonar"
+    },
+    "anuncio": {
+      "rotulo": "anuncio",
+      "alvos": {"pf": null, "curtas": null, "perg": null, "seg": null,
+                "imper": null, "trav": null, "ilf": null},
+      "fonte": "vazio — encher com o corpus de quem clonar"
+    },
+    "mensagem": {
+      "rotulo": "mensagem de grupo ou mensageiro",
+      "alvos": {"pf": null, "curtas": null, "perg": null, "seg": null,
+                "imper": null, "trav": null, "ilf": null},
+      "fonte": "vazio — encher com o corpus de quem clonar"
+    }
+  },
+
+  "universal": {
+    "_leia": [
+      "A UNICA regua que nasce cheia (D-03). Ela nao depende de corpus de",
+      "ninguem: sai da especificacao da WCAG e da medicao que a casa exige",
+      "em toda pagina que capta lead ou vende."
+    ],
+    "contraste_minimo": 4.5,
+    "contraste_minimo_texto_grande": 3.0,
+    "medicao_exigida": ["pixel", "ga4", "clarity"],
+    "link_interno_quebrado": 0,
+    "cdn_de_terceiro_permitido": false
+  }
+}

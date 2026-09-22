@@ -1,0 +1,103 @@
+{
+  "_leia": [
+    "AS MENTES, EM DADOS (R7) — e o que elas NAO sao.",
+    "",
+    "Aqui mora a LENTE de cada mente: a pergunta que ela faz e a regua que",
+    "ela aplica. Nao mora o texto que ela escreveria (D-12): as 22 personas",
+    "do `o catalogo de personas` sao em ingles e escrevem em ingles, e mente que escreve",
+    "direto produz copy traduzida, que e' o 'copy de ninguem' da D-02.",
+    "",
+    "A frase final e' da Camada 5, na gramatica do produto declarado.",
+    "",
+    "🔴 CADA MENTE DECLARA QUANDO A REGUA NAO SERVE (D-06). O campo",
+    "`nao_serve_para` e' obrigatorio e entra na saida. Em num caso medido duas",
+    "conclusoes cairam por falta disso: 'amostra gratis falsificada' aplicada",
+    "a um screenshot e' regua de produto fisico, e 'a escada nao tem primeiro",
+    "degrau' aplicada a trial de SaaS e' regua de infoproduto.",
+    "",
+    "Os dois grupos rodam SEMPRE, nunca um so (D-05). O agrupamento sai dos",
+    "tiers do `o catalogo de personas`, nao foi inventado aqui."
+  ],
+
+  "grupos": {
+    "arquitetura-da-oferta": {
+      "pergunta": "o que se vende, o mecanismo, a alegacao e a prova, o posicionamento",
+      "tier_de_origem": "1B e 1D do o catalogo de personas"
+    },
+    "oficio-de-texto": {
+      "pergunta": "consciencia de mercado, manchete, registro, fluxo de leitura",
+      "tier_de_origem": "1A e 1C do o catalogo de personas"
+    }
+  },
+
+  "mentes": [
+    {
+      "id": "schwartz-consciencia",
+      "grupo": "oficio-de-texto",
+      "lente": "Em que nivel de consciencia o leitor chega? A manchete tem de encontrar o leitor onde ele esta, nao onde o vendedor gostaria.",
+      "regua": "manchete de produto so funciona para quem ja conhece o produto; para quem nao conhece, a manchete e' do problema",
+      "nao_serve_para": "peca interna, documentacao, e qualquer texto cujo leitor ja decidiu comprar"
+    },
+    {
+      "id": "hopkins-especificidade",
+      "grupo": "oficio-de-texto",
+      "lente": "O numero especifico vence o adjetivo. Quanto, em quanto tempo, para quem?",
+      "regua": "toda alegacao carrega numero ou sai",
+      "nao_serve_para": "peca de marca sem oferta, e caso em que o numero existe mas e' confidencial"
+    },
+    {
+      "id": "halbert-registro",
+      "grupo": "oficio-de-texto",
+      "lente": "Isso soa como gente falando, ou como empresa escrevendo?",
+      "regua": "se a frase nao passaria num grupo de conversa do publico real, ela e' marketing",
+      "nao_serve_para": "peca tecnica, juridica ou regulatoria, onde o registro formal e' exigido"
+    },
+    {
+      "id": "collier-entrada",
+      "grupo": "oficio-de-texto",
+      "lente": "A abertura entra na conversa que ja esta acontecendo na cabeca do leitor?",
+      "regua": "abertura que fala de si perde; abertura que nomeia a situacao dele ganha",
+      "nao_serve_para": "peca que o leitor procurou ativamente, onde o contexto ja esta dado"
+    },
+    {
+      "id": "brown-mecanismo",
+      "grupo": "arquitetura-da-oferta",
+      "lente": "Existe um mecanismo nomeado, ou so uma promessa?",
+      "regua": "promessa sem mecanismo e' desejo; o mecanismo diz POR QUE funciona",
+      "nao_serve_para": "categoria madura onde o mecanismo ja e' conhecido de todos"
+    },
+    {
+      "id": "hormozi-valor",
+      "grupo": "arquitetura-da-oferta",
+      "lente": "A oferta esta fraca, ou e' a copy? Sonho, probabilidade, tempo, esforco.",
+      "regua": "quase todo pedido de melhorar a copy e', na verdade, oferta fraca",
+      "nao_serve_para": "peca sem oferta: institucional, conteudo, pagina de obrigado"
+    },
+    {
+      "id": "ogilvy-prova",
+      "grupo": "arquitetura-da-oferta",
+      "lente": "O que sustenta a alegacao? Quem ja fez, e como sabemos?",
+      "regua": "alegacao sem prova e' custo, nao ativo: ela levanta a duvida e nao a fecha",
+      "nao_serve_para": "produto novo sem cliente, onde a prova honesta ainda nao existe"
+    },
+    {
+      "id": "kennedy-publico",
+      "grupo": "arquitetura-da-oferta",
+      "lente": "Para quem, exatamente? Se serve para todos, nao convence ninguem.",
+      "regua": "a peca nomeia o publico ou o descreve por situacao concreta",
+      "nao_serve_para": "plataforma horizontal de uso generico, onde segmentar exclui receita real"
+    }
+  ],
+
+  "moldes_de_manchete": {
+    "_leia": [
+      "Moldes ESTRUTURAIS, nunca frases prontas. O molde diz a forma; o",
+      "conteudo vem do caso e a redacao vem da gramatica do produto.",
+      "Frase pronta aqui viraria a copy generica que a D-02 proibe."
+    ],
+    "situacao-do-leitor": "nomeia o estado em que o leitor esta agora, sem citar o produto",
+    "problema-com-mecanismo": "nomeia o problema e diz por que ele acontece",
+    "resultado-com-prazo": "diz o que muda e em quanto tempo, com numero",
+    "contraste-de-caminho": "opoe o caminho atual ao caminho proposto, sem desmerecer quem esta no atual"
+  }
+}
