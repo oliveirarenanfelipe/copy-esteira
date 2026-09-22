@@ -3,12 +3,12 @@
 
 CHAMADOR: `esteira/gabarito.py` (o reencontro da F3) e `testar_varredura.py`.
 
-Os gates de `gate.py` olham UM arquivo. Tres achados do gabarito de num caso medido so
-existem quando se olha o projeto inteiro:
+Os gates de `gate.py` olham UM arquivo. Tres tipos de achado so existem
+quando se olha o projeto inteiro:
 
-  · "4 links da home exigem login"   -> precisa saber quais rotas sao privadas
-  · "zero link quebrado em 93 rotas" -> precisa do mapa de rotas
-  · "FAQ ausente, e o produto prescreve" -> precisa comparar o que o proprio
+  · link da home que exige login    -> precisa saber quais rotas sao privadas
+  · link interno que nao resolve    -> precisa do mapa de rotas
+  · tela prescrita e nao entregue   -> precisa comparar o que o proprio
     produto declara com o que ele entrega
 
 JA EXISTIA? `gate.py:167` tem `gate_caminhos`, mas ele le UM arquivo e procura

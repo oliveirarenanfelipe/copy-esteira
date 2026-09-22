@@ -197,9 +197,10 @@ def contraste_com_alpha(frente, fundo, alpha):
 def pior_contraste(frente, fundos, alpha=1.0):
     """O pior caso entre varios fundos, que e' o unico que decide.
 
-    Medir um quadro so de um fundo animado nao decide nada. O gabarito de
-    num caso medido registrou 3,51:1 no quadro mais claro e 1,38:1 no pior pixel — dois
-    numeros do MESMO texto.
+    Medir um quadro so de um fundo animado nao decide nada. Numa auditoria
+    real o MESMO texto deu dois numeros distantes, um por quadro: aceitavel
+    no trecho escuro, ilegivel no trecho claro. A media entre eles nao
+    descreve nenhum dos dois, e o que o leitor sofre e' o pior.
     """
     if not fundos:
         return None
