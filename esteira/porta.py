@@ -30,6 +30,8 @@ import re
 import sys
 import unicodedata
 
+from esteira import saida_legivel
+
 AQUI = os.path.dirname(os.path.abspath(__file__))
 
 OK, ACUSOU, NAO_USAR, NAO_MEDIR = 0, 1, 2, 3
@@ -153,6 +155,7 @@ def impressao(p):
 
 
 def main(argv=None):
+    saida_legivel()
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv:
         print('uso: python -m esteira.porta "o que voce quer, em lingua normal"')

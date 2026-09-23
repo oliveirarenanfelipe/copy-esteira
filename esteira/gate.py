@@ -37,6 +37,7 @@ import os
 import re
 import sys
 
+from esteira import saida_legivel
 from esteira import medidas
 from esteira.corpus import colher, colher_pasta
 
@@ -111,7 +112,7 @@ def carregar_reguas(caminho=REGUAS):
 
 # ── os gates ────────────────────────────────────────────────────────────────
 
-def gate_legibilidade(texto, alvo_ilf, folga):
+def gate_legibilidade(texto, alvo_ilf, folga, regime="limiar"):
     m = medidas.legibilidade(texto)
     if m is None:
         return Achado("legibilidade", "nao-mediu", nota="texto sem frase")
@@ -120,32 +121,57 @@ def gate_legibilidade(texto, alvo_ilf, folga):
                       nota="sem regua medida (faixa: %s)" % m["faixa"])
     piso = alvo_ilf - (folga.get("abaixo") or 0)
     ok = m["ilf"] >= piso
+    if not ok and regime != "limiar":
+        return Achado("legibilidade", "passa", valor=m["ilf"],
+                      limiar=round(piso, 1), confianca="baixa",
+                      nota="fora da direcao, e direcao nao reprova "
+                           "(faixa: %s)" % m["faixa"])
     return Achado("legibilidade", "passa" if ok else "reprova",
                   valor=m["ilf"], limiar=round(piso, 1),
                   nota="faixa: %s" % m["faixa"])
 
 
-def gate_forma(texto, alvos, folgas):
-    """Uma linha por metrica com alvo declarado. Alvo nulo nao reprova."""
+def gate_forma(texto, alvos, folgas, regime="limiar"):
+    """Uma linha por metrica com alvo declarado. Alvo nulo nao reprova.
+
+    🔴 `regime` decide se o alvo REPROVA ou so orienta. Regua tirada de menos
+    de quinze pecas descreve o gosto de quem escreveu aquelas poucas, nao a
+    forma do tipo de peca — entao ela sai como DIRECAO, com o numero a vista e
+    sem poder de veto. Chamar isso de limiar seria dar a um corpus de cinco
+    pecas o mesmo peso que a um de cinquenta.
+    """
     m = medidas.forma(texto)
     if m is None:
         return [Achado("forma", "nao-mediu", nota="texto sem frase")]
+    v = medidas.vicio(texto)
+    m = dict(m)
+    m["vicio"] = None if v is None else v["indice"]
     saida = []
-    for chave in ("pf", "curtas", "perg", "seg", "imper", "trav"):
+    for chave in ("pf", "curtas", "perg", "seg", "imper", "trav", "vicio"):
         alvo = alvos.get(chave)
+        valor = m.get(chave)
+        if valor is None:
+            saida.append(Achado("forma:%s" % chave, "nao-mediu",
+                                nota="texto curto demais para esta metrica"))
+            continue
         if alvo is None:
             saida.append(Achado("forma:%s" % chave, "nao-mediu",
-                                valor=m[chave], nota="sem alvo medido"))
+                                valor=valor, nota="sem alvo medido"))
             continue
         folga = folgas.get(chave) or {}
         acima, abaixo = folga.get("acima"), folga.get("abaixo")
         ruim = False
-        if acima is not None and m[chave] - alvo > acima:
+        if acima is not None and valor - alvo > acima:
             ruim = True
-        if abaixo is not None and alvo - m[chave] > abaixo:
+        if abaixo is not None and alvo - valor > abaixo:
             ruim = True
+        if ruim and regime != "limiar":
+            saida.append(Achado("forma:%s" % chave, "passa", valor=valor,
+                                limiar=alvo, confianca="baixa",
+                                nota="fora da direcao, e direcao nao reprova"))
+            continue
         saida.append(Achado("forma:%s" % chave, "reprova" if ruim else "passa",
-                            valor=m[chave], limiar=alvo))
+                            valor=valor, limiar=alvo))
     return saida
 
 
@@ -236,12 +262,17 @@ def avaliar(caminho, peca, reguas=None, raiz=None):
         bruta = ""
 
     alvos = ficha.get("alvos", {})
-    folgas = reguas.get("_folgas", {})
+    # 🔴 A FOLGA DA PROPRIA PECA VEM PRIMEIRO. A do topo e' herdada, e foi
+    # herdando folga que um defeito viajou de um projeto para outro: 2,0 onde
+    # o desvio medido era 2,3, reprovando oito pecas legitimas de quarenta e
+    # sete. Quem tem folga medida usa a sua; quem nao tem cai na de reserva.
+    folgas = ficha.get("folgas") or reguas.get("_folgas", {})
+    regime = ficha.get("regime", "limiar")
     univ = reguas.get("universal", {})
 
     achados = [gate_legibilidade(texto, alvos.get("ilf"),
-                                 folgas.get("ilf") or {})]
-    achados += gate_forma(texto, alvos, folgas)
+                                 folgas.get("ilf") or {}, regime)]
+    achados += gate_forma(texto, alvos, folgas, regime)
     if bruta:
         achados += gate_medicao(bruta, univ.get("medicao_exigida", []))
         achados += gate_cdn_de_terceiro(
@@ -269,6 +300,7 @@ def escrever_saida(pasta, nome, conteudo, reprovado):
 
 
 def main(argv=None):
+    saida_legivel()
     argv = list(sys.argv[1:] if argv is None else argv)
     livres = [a for a in argv if not a.startswith("--")]
     if not livres:

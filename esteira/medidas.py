@@ -217,3 +217,123 @@ def hex_para_rgb(h):
         return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
     except ValueError:
         return None
+
+
+# ── vicio de escrita ────────────────────────────────────────────────────────
+# O indice de vicio de escrita, por mil palavras. NAO mede de onde o texto
+# veio: mede se ele tem os tiques que fazem o leitor desconfiar.
+#
+# ORIGEM: os sinais catalogados no `humanizer` (MIT, Copyright 2025 Siqi Chen),
+# ja em uso na casa como porteiro de gravacao. O que migra e' a LISTA de
+# sinais; o teto de 35 de la NAO migra, e a razao esta medida: aquele teto foi
+# calibrado em prosa longa, e copy boa fica perto de 20. Copy tem teto proprio,
+# saido do corpus, como manda o registro de reguas.
+#
+# 🔴 O QUE FICOU DE FORA, E POR QUE ISSO E' PARTE DA MEDIDA
+# ---------------------------------------------------------
+# Caixa alta (pega sigla tecnica), aspas curvas (convencao tipografica), par
+# hifenizado (pega termo tecnico) e a triade de tres itens. A triade saiu
+# depois de reprovar texto bom: um regex nao distingue a triade pelo RITMO,
+# que e' o tell, de uma enumeracao legitima de tres coisas.
+# Contar errado e' pior que nao contar.
+TELLS = {
+    "nao-X-mas-Y": r"\bn[aã]o\s+(?:[eé]|se trata de|apenas|s[oó])\b"
+                   r"[^.!?\n]{2,60}?,?\s*(?:mas|e sim|[eé])\b",
+    "frase de efeito": r"\b(no fim do dia|no fim das contas|a verdade [eé] que|"
+                       r"leia de novo|pense nisso)\b",
+    "discute com ninguem": r"\b(n[aã]o se engane|ao contr[aá]rio do que "
+                           r"(?:muitos|voc[eê]) pensa|esque[cç]a (?:tudo )?o que)\b",
+    "travessao": r"[—–]",
+    "qualificador empilhado": r"\b(pode(?:ria)? (?:ser que )?talvez|talvez possa|"
+                              r"geralmente costuma|normalmente tende)\b",
+    "voz passiva": r"\b(?:foi|foram|ser[aá]|ser[aã]o|sido|[eé]|s[aã]o)\s+"
+                   r"(?!cada\b|nada\b|toda\b|vida\b|medida\b|entrada\b|sa[ií]da\b"
+                   r"|d[uú]vida\b|comida\b|jornada\b)"
+                   r"\w{4,}(?:ado|ada|ados|adas|ido|ida|idos|idas)\b",
+    "palavra generica": r"\b(crucial|fundamental|robusto|robusta|aprofundar|"
+                        r"alavancar|primordial|essencial|no entanto|al[eé]m disso|"
+                        r"em suma|vale ressaltar|[eé] importante "
+                        r"(?:notar|ressaltar|destacar)|em resumo|por fim|"
+                        r"dessa forma|portanto)\b",
+    "significancia inflada": r"\b(revolucion[aá]?\w*|muda tudo|game[- ]chang\w+|"
+                             r"divisor de [aá]guas|nunca mais ser[aá]|"
+                             r"transform\w+ completamente)\b",
+    "linguagem de venda": r"\b(descubra|desbloqueie|potencialize|turbine|"
+                          r"poderos[ao]|incr[ií]vel|impression\w+|surpreendente)\b",
+    "evita ser e ter": r"\b(consiste em|configura-se como|apresenta-se como|"
+                       r"caracteriza-se por)\b",
+    "negrito decorativo": r"\*\*[^*\n]{1,80}\*\*",
+    "residuo de chat": r"^\s*(claro!|[oó]tima pergunta|com certeza!|aqui est[aá]|"
+                       r"espero que (?:isso )?ajude)",
+    "disclaimer de modelo": r"\b(como (?:um )?modelo de linguagem|"
+                            r"at[eé] minha [uú]ltima atualiza[cç][aã]o|"
+                            r"n[aã]o tenho acesso a)\b",
+}
+_TELLS_C = {nome: re.compile(pat, re.I | (re.M if nome == "residuo de chat" else 0))
+            for nome, pat in TELLS.items()}
+
+# 🔴 SEPARADOR DE SECAO NAO E' PROSA, E ELE SOZINHO DERRUBOU UMA MEDICAO.
+# A unica peca que estourou o teto num corpus inteiro tinha 71 travessoes, e
+# parte deles era separador de bloco. O tell "travessao" conta pontuacao
+# dentro da frase; tres ou mais seguidos sao moldura, e moldura nao e' vicio.
+_SEPARADOR = re.compile(r"[—–]{3,}")
+_CERCA = re.compile(r"```.*?```", re.S)
+_CODIGO = re.compile(r"`[^`\n]+`")
+_LINHA_DE_TABELA = re.compile(r"^\|.*$", re.M)
+_URL = re.compile(r"https?://\S+")
+_FRONTMATTER = re.compile(r"\A---\n.*?\n---\n", re.S)
+_TAG = re.compile(r"<[^>]+>")
+_FORTE = re.compile(r"<(strong|b)\b[^>]*>(.*?)</\1>", re.S | re.I)
+_HTML_SUJO = re.compile(r"<(script|style)\b.*?</\1>|<!--.*?-->", re.S | re.I)
+_ENTIDADES = (("&mdash;", "—"), ("&ndash;", "–"), ("&nbsp;", " "),
+              ("&quot;", '"'), ("&#39;", "'"), ("&lt;", "<"), ("&gt;", ">"),
+              ("&amp;", "&"))
+
+# Abaixo disto o indice e' ruido: num texto de cem palavras, UM travessao vale
+# dez pontos. O piso e' declarado em vez de escondido — peca curta demais
+# devolve None, e None sai como "nao mediu", nunca como zero.
+VICIO_MINIMO_DE_PALAVRAS = 120
+
+
+def so_prosa(texto):
+    """Tira do texto o que nao e' prosa que um humano le.
+
+    Negrito em HTML vira negrito em markdown ANTES de as tags sumirem, para
+    que exista UM reconhecedor de negrito e nao dois que divergem calados.
+    """
+    t = texto
+    if "<" in t and re.search(r"<[a-zA-Z!/]", t):
+        t = _HTML_SUJO.sub(" ", t)
+        t = _FORTE.sub(lambda m: "**%s**" % m.group(2), t)
+        t = _TAG.sub(" ", t)
+        for ent, char in _ENTIDADES:
+            t = t.replace(ent, char)
+    t = _FRONTMATTER.sub("", t)
+    t = _CERCA.sub(" ", t)
+    t = _CODIGO.sub(" ", t)
+    t = _LINHA_DE_TABELA.sub(" ", t)
+    t = _URL.sub(" ", t)
+    t = _SEPARADOR.sub(" ", t)          # moldura, nao pontuacao
+    return t
+
+
+def vicio(texto, minimo=VICIO_MINIMO_DE_PALAVRAS):
+    """{indice, palavras, por_tell} por mil palavras, ou None se curto demais.
+
+    None quer dizer NAO MEDIU. Devolver zero para um texto de trinta palavras
+    seria um verde que ninguem apurou.
+    """
+    t = so_prosa(texto)
+    palavras = len(_PALAVRA.findall(t))
+    if palavras < minimo:
+        return None
+    por_tell = []
+    total = 0
+    for nome, rx in _TELLS_C.items():
+        n = len(rx.findall(t))
+        if n:
+            por_tell.append((round(n * 1000.0 / palavras, 1), nome, n))
+        total += n
+    por_tell.sort(reverse=True)
+    return {"indice": round(total * 1000.0 / palavras, 1),
+            "palavras": palavras, "por_tell": por_tell}

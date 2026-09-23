@@ -6,9 +6,14 @@ para pôr no lugar, com gates que reprovam de verdade em vez de avisar.
 Zero dependência no núcleo. Python 3.12 ou mais novo, biblioteca padrão.
 
 ```bash
-python -m esteira.gate ./minha-pagina.html --peca pagina-de-vendas
+python -m esteira.gate ./minha-pagina.html --peca pagina-de-captura
+python -m esteira.leitor ./minha-pagina.html
 python -m esteira.porta "audita a copy da minha página de vendas em ./lp"
 ```
+
+Se você chegou aqui com um agente de código junto, mande ele ler o `AGENTS.md` da raiz antes de
+qualquer coisa. Ele diz quais comandos existem e, mais importante, o que o agente não deve fazer —
+sendo o primeiro item reescrever à mão um medidor que já está pronto e testado.
 
 ---
 
@@ -47,7 +52,7 @@ duas vezes. Isso é aceitável numa sugestão e inaceitável num veto.
 |---|---|---|
 | 0 · corpus | vira texto visível, com `arquivo:linha` | pronta |
 | 1 · fatos | legibilidade, forma, caminhos, medição, contraste | pronta, com mutação |
-| 2 · leitor frio | mede compreensão sem contexto | não construída |
+| 2 · leitor frio | mede compreensão sem contexto | pronta, calibrada antes de reprovar |
 | 3 · mentes | dois grupos de lentes, cada uma declara quando não serve | registro pronto |
 | 4 · cético | recebe um achado e tenta derrubá-lo | em uso |
 | 5 · saídas | auditoria mais copy nova, vetada pelos mesmos gates | pronta |
@@ -88,6 +93,51 @@ pior quadro, porque medir um só não decide nada. O mesmo texto pode ir de 5,29
 Link interno que não resolve. Ausência de pixel, de analytics ou de gravador de sessão. URL
 absoluta servindo recurso em tempo de execução.
 
+---
+
+## De onde vêm os alvos, e como a régua passa por gate
+
+Os alvos de `esteira/reguas.json` saíram de um corpus de copy em português, medido peça a peça.
+Cada ficha carrega o `n`, a fonte e o regime:
+
+| Regime | O que significa |
+|---|---|
+| `limiar` | 15 peças ou mais no corpus: o gate reprova por este alvo |
+| `direcao` | menos de 15: o número orienta e o gate não reprova |
+| `nao-coberto` | sem corpus: o alvo fica nulo, e o gate declara que não mediu |
+
+A folga de cada métrica é o desvio medido do próprio corpus, nunca um número redondo. Isso não é
+preciosismo: numa medição real a folga de palavras por frase estava em 2,0, herdada de outro
+projeto, enquanto o desvio do corpus era 2,3. A folga estava abaixo do espalhamento natural do
+material e reprovava oito de quarenta e sete peças legítimas. A folga estava errada, não o corpus.
+
+Para medir o seu próprio corpus, uma peça por arquivo:
+
+```bash
+python -m esteira.aferir ./meu-corpus --peca email
+python -m esteira.aferir ./meu-corpus --peca email --contra ./exemplos/controle-ruim
+python -m esteira.aferir ./meu-corpus --peca email --registrar
+```
+
+O aferidor roda cinco testes antes de a régua entrar no registro, e régua que não passa não é
+gravada:
+
+| # | Teste | O que ele responde |
+|---|---|---|
+| 0 | dispersão | a mediana descreve o conjunto de onde saiu? |
+| 1 | validação cruzada | extraída de metade, ela aprova a outra metade? |
+| 2 | discriminação | ela reprova copy reconhecidamente ruim? |
+| 3 | falso positivo | ela deixa passar peça boa que não estava no corpus? |
+| 4 | cruzada | a régua de um grupo aprova a copy de outro? |
+
+O teste 0 parece circular e não é. O argumento contra ele era que rodar a régua contra o próprio
+corpus passaria cem por cento por construção. Medido: deu sessenta e seis. O corpus tem folga, as
+peças se espalham, e o número não é garantido. Cem por cento seria régua frouxa demais para reprovar
+qualquer coisa.
+
+A armadilha vem dita junto: validar a régua contra o corpus de onde ela saiu prova coerência, não
+qualidade. O teste 0 sozinho não basta, e é por isso que os outros quatro existem.
+
 ### Quem decide se uma rota exige login, e por que isso engana
 
 Há dois modelos, e eles se leem ao contrário.
@@ -123,8 +173,26 @@ As duas coisas são verdadeiras ao mesmo tempo, e nenhum ajuste de limiar na ré
 segundo problema, porque ele não é de forma. É por isso que o leitor frio é uma camada separada, e
 não uma métrica a mais.
 
-⚠️ Quando ela existir, precisa ser calibrada antes de valer como reprovação: rodar contra página
-que já converteu, e não acusá-la. Regra que acusa peça aprovada está errada, não a peça.
+```bash
+python -m esteira.leitor ./minha-pagina.html            # relata
+python -m esteira.leitor ./minha-pagina.html --exigir 5  # vira gate e reprova
+python -m esteira.leitor ./meu-projeto --publico         # quem a página diz que você é
+```
+
+Ela responde as dez perguntas que um visitante de primeira viagem faz, usando só o texto visível, e
+diz de qual trecho tirou cada resposta. Pergunta sem evidência fica sem resposta, nunca com uma
+resposta deduzida do que a página quis dizer.
+
+Ela foi calibrada antes de poder reprovar. O piso de 5 não é um número escolhido: é o menor placar
+entre peças que já converteram, medidas antes de o gate ganhar poder de veto. Gate que reprova o que
+converteu está errado sobre o mundo, não sobre a página. Sem `--exigir`, ele relata e não reprova.
+
+⚠️ O limite dela fica dito em vez de escondido: ela mede se a página responde a pergunta, não se a
+resposta é boa. Uma página que diz "para todos os públicos" responde à segunda pergunta, e responde
+mal. Rodada contra a mesma página da tabela acima, ela devolveu 6 de 10 onde um leitor humano sem
+contexto deu 3 de 10, porque conta a presença do vocabulário que responderia e não o conteúdo da
+resposta. O que ela acha bem é o piso: as perguntas para as quais a página não tem vocabulário
+nenhum.
 
 ---
 
@@ -231,6 +299,13 @@ Gate cuja mutação sobrevive não conta como entregue.
 
 MIT. Veja `LICENSE`.
 
-O que está aqui é o motor e o método. O corpus, a gramática e o julgamento que o alimentam são de
-quem os construiu, e não vêm no pacote. Por isso os esquemas nascem vazios, com instruções de como
-enchê-los.
+O que está aqui é o motor, o método e as réguas medidas. O **corpus** de onde as réguas saíram não
+vem no pacote, e a gramática e o julgamento de cada produto também não: são de quem os construiu.
+
+A distinção importa porque uma versão anterior deste repositório publicava os alvos vazios e mandava
+quem clonasse enchê-los. Medido num clone limpo: a pessoa enche com três peças, a régua sai com
+trinta e cinco pontos de desvio, e reprova as três candidatas — inclusive as duas boas. Ela abre o
+relatório, vê tudo vermelho e desiste. Não por defeito do motor: por régua ruim que o produto a
+obrigou a fabricar.
+
+Então os números sobem prontos, e a ferramenta de refazer a conta com o seu corpus sobe junto.

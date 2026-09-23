@@ -27,14 +27,19 @@ E ha um terceiro caso, que a D-13 exige e que quase ninguem escreve: a
 ocorrencia LEGITIMA do termo, que nao pode reprovar. Falso positivo ensina a
 ignorar a linha, e a casa ja pagou por isso duas vezes.
 """
+import json
 import os
+import re
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from esteira import medidas                                    # noqa: E402
+from esteira import aferir, leitor, medidas, projeto           # noqa: E402
 from esteira import lentes, varredura                          # noqa: E402
-from esteira.corpus import colher, colher_marcado              # noqa: E402
+from esteira.corpus import (                                   # noqa: E402
+    colher, colher_json, colher_marcado, colher_pasta,
+)
 from esteira.gate import (                                     # noqa: E402
     ACUSOU, NAO_MEDIR, NAO_USAR, OK, avaliar, escrever_saida,
     gate_caminhos, gate_cdn_de_terceiro, gate_forma,
@@ -495,8 +500,435 @@ def test_MUTACAO_do_veredito_inteiro(tmp_path):
     assert cod2 == ACUSOU, [a.linha() for a in achados2]
 
 
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 6. O AFERIDOR — a regua tambem passa por gate, e a folga sai do desvio
+# ══════════════════════════════════════════════════════════════════════
+
+def _corpo(pf_alvo, n=20):
+    """n pecas com palavras-por-frase perto de `pf_alvo`, variando de pouco."""
+    saida = []
+    for i in range(n):
+        extra = " tambem" * (i % 3)
+        texto = ("O sol paga a conta de luz%s. "
+                 "A placa gera de dia e voce usa a noite%s. "
+                 "O preco cabe no bolso do mes%s.\n" % (extra, extra, extra))
+        saida.append(("p%02d.txt" % i, texto))
+    return aferir.medir_pecas(saida)
+
+
+def test_folga_sai_do_desvio_medido_e_nao_de_numero_redondo():
+    medidos = _corpo(8.0)
+    r = aferir.extrair_regua(medidos)
+    dp = aferir._desvio([m["pf"] for _, m in medidos])
+    assert r["folgas"]["pf"]["acima"] == round(dp * aferir.DESVIOS_NA_FOLGA, 1)
+
+
+def test_MUTACAO_folga_herdada_reprova_o_que_a_medida_aprova():
+    """A prova do defeito que viajou: folga escolhida a mao reprova peca
+    legitima que a folga MEDIDA deixa passar."""
+    medidos = _corpo(8.0)
+    medida = aferir.extrair_regua(medidos)
+    herdada = {"alvos": medida["alvos"],
+               "folgas": dict(medida["folgas"],
+                              pf={"acima": 0.1, "abaixo": None})}
+    passam_medida = sum(1 for _, m in medidos if aferir.passa_tudo(m, medida))
+    passam_herdada = sum(1 for _, m in medidos if aferir.passa_tudo(m, herdada))
+    assert passam_herdada < passam_medida
+
+
+def test_desvio_zero_NAO_vira_folga_zero():
+    """Corpus sem espalhamento nao ensina limite. Medido: 59 mensagens com
+    imperativo 0,0 em todas — folga 0,0 reprovaria a primeira que abrisse com
+    'clica no link', que e' mensagem normal."""
+    iguais = aferir.medir_pecas(
+        [("p%d.txt" % i, "Clique aqui. Clique agora. Clique ja.\n")
+         for i in range(20)])
+    r = aferir.extrair_regua(iguais)
+    for met in ("pf", "imper"):
+        f = r["folgas"][met]
+        assert f["acima"] is None and f["abaixo"] is None, met
+
+
+def test_metrica_com_n_abaixo_do_piso_sai_NULA_com_o_motivo_escrito():
+    """Alvo tirado de tres pecas dentro de uma regua que REPROVA seria numero
+    de aparencia medida decidindo sobre peca de terceiro."""
+    medidos = _corpo(8.0, n=20)          # pecas curtas: `vicio` nao alcanca
+    r = aferir.extrair_regua(medidos, evidencia="corpus de controle da suite")
+    assert r["regime"] == "limiar"
+    assert r["alvos"]["vicio"] is None
+    assert "vicio" in r["alvos_sem_regua"]
+    assert "3 de" in r["alvos_sem_regua"]["vicio"] or \
+           "0 de" in r["alvos_sem_regua"]["vicio"]
+
+
+def test_MUTACAO_corpus_sem_evidencia_declarada_NAO_ganha_poder_de_veto():
+    """Vinte pecas de um site sem conversao medida dao o mesmo `n` que vinte
+    pecas de copy que vendeu. O tamanho responde "este corpus descreve o tipo
+    de peca?"; ele NAO responde "este corpus e' de copy que funciona?".
+
+    Confundir as duas e' como uma regua ganha poder de reprovar peca de
+    terceiro so por ter muitos arquivos. Na omissao, o caminho seguro."""
+    medidos = _corpo(8.0, n=20)
+    sem = aferir.extrair_regua(medidos)
+    com = aferir.extrair_regua(medidos, evidencia="custo por lead medido")
+    assert sem["regime"] == "direcao"
+    assert com["regime"] == "limiar"
+    # e a consequencia de verdade: direcao nao reprova
+    alvos = {"pf": 5.0}
+    folgas = {"pf": {"acima": 0.5, "abaixo": None}}
+    achado = [a for a in gate_forma(DIFICIL, alvos, folgas, sem["regime"])
+              if a.gate == "forma:pf"][0]
+    assert achado.veredito == "passa"
+
+
+def test_MUTACAO_regua_reprovada_NAO_e_gravada_no_registro(tmp_path):
+    """Mesmo mecanismo do gate: o destino e' decidido pelo veredito, e nao ha
+    opcao de forcar."""
+    registro = tmp_path / "reguas.json"
+    registro.write_text(json.dumps(
+        {"pecas": {"x": {"rotulo": "x", "alvos": {"pf": None}}}}),
+        encoding="utf-8")
+    medidos = _corpo(8.0)
+    r = aferir.extrair_regua(medidos)
+    reprovado = [{"teste": "0 dispersao", "veredito": "reprova"}]
+    ok, _ = aferir.registrar("x", r, reprovado, caminho=str(registro))
+    assert ok is False
+    assert json.loads(registro.read_text(encoding="utf-8"))[
+        "pecas"]["x"]["alvos"]["pf"] is None
+
+    aprovado = [{"teste": "0 dispersao", "veredito": "passa"}]
+    ok2, _ = aferir.registrar("x", r, aprovado, caminho=str(registro))
+    assert ok2 is True
+    assert json.loads(registro.read_text(encoding="utf-8"))[
+        "pecas"]["x"]["alvos"]["pf"] is not None
+
+
+def test_teste_0_fora_da_faixa_REPROVA_a_regua():
+    """Cem por cento e' regua frouxa demais para reprovar qualquer coisa."""
+    medidos = _corpo(8.0)
+    frouxa = {"alvos": {"pf": 8.0},
+              "folgas": {"pf": {"acima": 999.0, "abaixo": None}}}
+    t = aferir.teste_0_dispersao(medidos, frouxa)
+    assert t["pct"] == 100.0
+    assert t["veredito"] == "reprova"
+
+
+def test_aferidor_e_gate_fazem_a_MESMA_conta():
+    """Se as duas contas divergirem, o aferidor valida uma regua que o gate
+    nao aplica — e ninguem descobre ate a peca errada passar."""
+    alvos = {"pf": 8.0}
+    folgas = {"pf": {"acima": 1.0, "abaixo": None}}
+    texto = DIFICIL
+    m = medidas.forma(texto)
+    do_aferidor = aferir.reprova(m["pf"], alvos["pf"], folgas["pf"])
+    do_gate = [a for a in gate_forma(texto, alvos, folgas)
+               if a.gate == "forma:pf"][0].veredito == "reprova"
+    assert do_aferidor == do_gate is True
+
+
+def test_regime_direcao_NAO_reprova_e_regime_limiar_reprova():
+    alvos = {"pf": 5.0}
+    folgas = {"pf": {"acima": 0.5, "abaixo": None}}
+    achado_l = [a for a in gate_forma(DIFICIL, alvos, folgas, "limiar")
+                if a.gate == "forma:pf"][0]
+    achado_d = [a for a in gate_forma(DIFICIL, alvos, folgas, "direcao")
+                if a.gate == "forma:pf"][0]
+    assert achado_l.veredito == "reprova"
+    assert achado_d.veredito == "passa"
+    assert achado_d.confianca == "baixa"
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 7. O LEITOR FRIO — e os tres modos de dar resposta a pergunta errada
+# ══════════════════════════════════════════════════════════════════════
+
+def test_MUTACAO_pagina_muda_e_a_compreensao_muda(tmp_path):
+    vazia = tmp_path / "vazia.html"
+    vazia.write_text("<p>Bem-vindo ao nosso espaco digital.</p>"
+                     "<p>Excelencia e inovacao.</p>", encoding="utf-8")
+    cheia = tmp_path / "cheia.html"
+    cheia.write_text(
+        "<p>Curso para eletricistas que querem instalar energia solar.</p>"
+        "<p>Voce recebe 7 modulos e certificado.</p>"
+        "<p>Custa R$ 1.997, em 12x de R$ 199.</p>"
+        "<p>Sao 3 dias de encontro presencial.</p>"
+        "<p>Garantia de 7 dias ou dinheiro de volta.</p>"
+        "<p>Quem ensina esta no mercado desde 2015.</p>"
+        "<p>O problema e nao saber por onde comecar.</p>"
+        "<p>Clique e garanta sua vaga.</p>"
+        "<p>Criado por quem instala usina ha 11 anos.</p>", encoding="utf-8")
+    r_v, _ = leitor.ler(str(vazia))
+    r_c, _ = leitor.ler(str(cheia))
+    assert r_c["respondidas"] > r_v["respondidas"]
+    assert r_v["respondidas"] <= 2
+
+
+def test_falso_positivo_afirmacao_NEGADA_nao_conta_como_resposta(tmp_path):
+    """Medido numa pagina real: 'por que confiar' foi dada como respondida por
+    'voce NAO precisa ser especialista em' — a pagina dizendo que nao ha
+    credencial, lida como se houvesse."""
+    alvo = tmp_path / "p.html"
+    alvo.write_text("<p>Voce nao precisa ser especialista em nada disso.</p>",
+                    encoding="utf-8")
+    r, _ = leitor.ler(str(alvo))
+    por_confiar = dict(r["respostas"])["7 por que confiar"]
+    assert por_confiar is None
+
+
+def test_falso_positivo_conjuncao_nao_e_assinatura(tmp_path):
+    """'por que sua ideia' nao e 'por Maria Silva'. A inicial maiuscula e' o
+    unico sinal que separa os dois, e `re.I` apagaria exatamente ele."""
+    alvo = tmp_path / "p.html"
+    alvo.write_text("<p>Entenda por que sua ideia precisa de estrutura.</p>",
+                    encoding="utf-8")
+    r, _ = leitor.ler(str(alvo))
+    assert dict(r["respostas"])["10 quem esta por tras"] is None
+
+    assinado = tmp_path / "q.html"
+    assinado.write_text("<p>Escrito por Maria Silva para quem comeca.</p>",
+                        encoding="utf-8")
+    r2, _ = leitor.ler(str(assinado))
+    assert dict(r2["respostas"])["10 quem esta por tras"] is not None
+
+
+def test_falso_positivo_para_VALIDAR_nao_e_publico(tmp_path):
+    alvo = tmp_path / "p.html"
+    alvo.write_text("<p>Uma ferramenta para validar sua ideia rapido.</p>"
+                    "<p>Feito para eletricistas do interior.</p>",
+                    encoding="utf-8")
+    p, _ = leitor.publico(str(alvo))
+    nomes = [n.lower() for n, _c, _o in p["publicos"]]
+    assert not any(n.startswith("validar") for n in nomes)
+    assert any("eletricista" in n for n in nomes)
+
+
+def test_MUTACAO_a_trava_da_camada_2_documentacao_nao_e_pagina(tmp_path):
+    """Um leitor que leu o README do projeto deixou de ser frio. Medido: nove
+    das dez perguntas respondidas, sete delas por arquivo de documentacao."""
+    projeto = tmp_path / "proj"
+    (projeto / "src").mkdir(parents=True)
+    (projeto / "LEIAME.md").write_text(
+        "Curso para eletricistas. Voce recebe 7 modulos. Custa R$ 1.997. "
+        "Garantia de 7 dias. Criado por quem trabalha desde 2015. "
+        "Clique para comecar. Sao 3 dias de encontro.\n", encoding="utf-8")
+    (projeto / "src" / "Pagina.tsx").write_text(
+        '<div><p>Bem-vindo ao espaco digital.</p></div>', encoding="utf-8")
+    r, cod = leitor.ler(str(projeto))
+    assert cod == OK
+    assert r["respondidas"] <= 2, [n for n, a in r["respostas"] if a]
+
+
+def test_leitor_sem_exigir_RELATA_e_com_exigir_REPROVA(tmp_path):
+    alvo = tmp_path / "p.html"
+    alvo.write_text("<p>Bem-vindo ao nosso espaco digital de excelencia.</p>",
+                    encoding="utf-8")
+    assert leitor.main([str(alvo)]) == OK
+    assert leitor.main([str(alvo), "--exigir", "5"]) == ACUSOU
+
+
+def test_divergencia_de_publico_acusa_quando_comunicado_nao_bate(tmp_path):
+    comunicado = [("investidores", 2, "hero.tsx:12")]
+    assert leitor.divergencia_de_publico(
+        comunicado, ["startups", "fundadores"])["diverge"] is True
+    assert leitor.divergencia_de_publico(
+        comunicado, ["investidores anjo"])["diverge"] is False
+
 # ══════════════════════════════════════════════════════════════════════
 # 5. RODAR SEM PYTEST — e o motivo disto existir e' um falso verde medido
+# ══════════════════════════════════════════════════════════════════════
+# 8. A COPY QUE MORA EM DADOS — e a trava da Camada 0 um nivel acima
+# ══════════════════════════════════════════════════════════════════════
+
+_JSON_DE_SITE = """{
+  "ativo": true,
+  "tema": "primary",
+  "id": "hero-principal",
+  "className": "mt-4 text-lg",
+  "src": "/imagens/telhado.png",
+  "versao_do_layout": "v3-hero-largo",
+  "titulo": "A conta de luz para de subir no mes que vem.",
+  "paragrafos": [
+    "Voce instala hoje e a economia comeca na proxima fatura.",
+    "Nada de obra grande: sao dois dias de servico no telhado."
+  ],
+  "cta": {"texto": "Quero simular a minha economia agora", "href": "/simular"}
+}"""
+
+
+def test_colher_json_le_a_copy_que_mora_em_dados():
+    """Medido num site real: a pagina de 20 KB entregava 150 caracteres pela
+    Camada 0, e a home entregava ZERO. Os 240 KB de texto estavam em `.json`,
+    e o componente so os renderizava."""
+    trechos = colher_json(_JSON_DE_SITE, "pagina.json")
+    textos = [t.texto for t in trechos]
+    assert any("conta de luz para de subir" in t for t in textos)
+    assert any("dois dias de servico" in t for t in textos)
+    assert any("Quero simular" in t for t in textos)
+
+
+def test_MUTACAO_a_CHAVE_do_json_NUNCA_entra_no_corpus():
+    """A trava da Camada 0, um nivel acima: `titulo`, `cta` e `paragrafos` sao
+    o vocabulario de quem montou o arquivo, igual a nome de componente. O
+    visitante le o VALOR."""
+    textos = " ".join(t.texto for t in colher_json(_JSON_DE_SITE, "p.json"))
+    for chave in ("titulo", "paragrafos", "cta", "ativo", "atualizado"):
+        assert chave not in textos, chave
+
+
+def test_falso_positivo_configuracao_nao_e_copy():
+    """Sem este corte a regua sai medindo o arquivo de configuracao."""
+    textos = [t.texto for t in colher_json(_JSON_DE_SITE, "p.json")]
+    for lixo in ("primary", "hero-principal", "mt-4 text-lg",
+                 "/imagens/telhado.png", "v3-hero-largo", "/simular"):
+        assert lixo not in textos, lixo
+
+
+def test_json_carrega_arquivo_e_linha_conferiveis():
+    """Achado sem fonte nao existe. O parser perde a posicao, entao a linha
+    vem de procurar o texto no arquivo bruto."""
+    trechos = colher_json(_JSON_DE_SITE, "pagina.json")
+    titulo = [t for t in trechos if "conta de luz" in t.texto][0]
+    linha_real = _JSON_DE_SITE.split("\n").index(
+        [l for l in _JSON_DE_SITE.split("\n") if "conta de luz" in l][0]) + 1
+    assert titulo.linha == linha_real
+    assert titulo.onde().startswith("pagina.json:")
+
+
+def test_json_quebrado_nao_derruba_a_colheita(tmp_path):
+    alvo = tmp_path / "meio.json"
+    alvo.write_text('{"titulo": "sem fechar', encoding="utf-8")
+    trechos, cod = colher(str(alvo))
+    assert cod == NAO_MEDIR
+    assert trechos == []
+def test_MUTACAO_entidade_html_NAO_entra_como_palavra():
+    """Achado ao rodar a Camada 0 sobre pagina real da web, e nao sobre
+    arquivo de teste. O codigo que NOS escrevemos usa aspas de verdade; o
+    HTML de terceiro vem cheio de `&quot;` e `&#x27;`.
+
+    Cada entidade nao desfeita vira uma palavra na contagem, infla
+    palavras-por-frase e move o indice de legibilidade. O numero sai errado e
+    le como fato.
+    """
+    bruto = ('<p>Ele disse &quot;vem&quot; e ela n&#227;o foi.</p>'
+             '<p>Custa 10 &amp; pouco, com 20&#37; de desconto.</p>')
+    textos = [t.texto for t in colher_marcado(bruto, "x.html")]
+    juntos = " ".join(textos)
+    for entidade in ("&quot;", "&#227;", "&amp;", "&#37;"):
+        assert entidade not in juntos, entidade
+    assert '"vem"' in juntos
+    assert "não foi" in juntos
+
+    # e a prova de que isso MOVE a medida, nao so a aparencia
+    from esteira import medidas
+    com = medidas.legibilidade(" ".join(
+        t.texto for t in colher_marcado(bruto, "x.html")))
+    sujo = medidas.legibilidade("Ele disse &quot;vem&quot; e ela n&#227;o foi.")
+    assert com["pal_por_frase"] != sujo["pal_por_frase"]
+
+
+def test_amp_e_desfeito_por_ultimo():
+    """`&amp;quot;` e' um `&quot;` escrito literalmente na pagina. Trocar
+    `&amp;` primeiro o transformaria em aspas, que e' o contrario do que a
+    pagina mostra."""
+    textos = [t.texto for t in colher_marcado(
+        "<p>Escreva &amp;quot; para uma aspa no codigo.</p>", "x.html")]
+    assert any("&quot;" in t for t in textos)
+
+
+def test_json_NAO_entra_na_varredura_de_pasta_por_padrao(tmp_path):
+    """Mesma razao do `.md`: dentro de um projeto, `.json` e' quase sempre
+    configuracao, `package.json`, `tsconfig`, dado de build. Quem quer medir a
+    copy em dados aponta o caminho PARA o arquivo."""
+    projeto = tmp_path / "proj"
+    (projeto / "src").mkdir(parents=True)
+    (projeto / "package.json").write_text(
+        '{"name": "meu-site", "description": "Um site para vender energia '
+        'solar para quem mora em casa."}', encoding="utf-8")
+    (projeto / "src" / "Pagina.tsx").write_text(
+        '<div><p>O sol paga a sua conta de luz.</p></div>', encoding="utf-8")
+    trechos, _ = colher_pasta(str(projeto))
+    juntos = " ".join(t.texto for t in trechos)
+    assert "conta de luz" in juntos
+    assert "vender energia" not in juntos
+
+# ══════════════════════════════════════════════════════════════════════
+# 9. A VARREDURA DE PROJETO — a capacidade que subia sem porta
+# ══════════════════════════════════════════════════════════════════════
+
+def _projeto_next(tmp_path, com_defeito=False):
+    """Um projeto Next minimo: duas rotas, um link, um porteiro."""
+    raiz = tmp_path / "site"
+    (raiz / "app" / "precos").mkdir(parents=True)
+    (raiz / "app" / "conta").mkdir(parents=True)
+    (raiz / "app" / "precos" / "page.tsx").write_text(
+        '<a href="/conta">Minha conta</a>', encoding="utf-8")
+    (raiz / "app" / "conta" / "page.tsx").write_text(
+        '<p>Painel</p>', encoding="utf-8")
+    (raiz / "public-paths.ts").write_text(
+        'export const PUBLIC_PATHS = ["/", "/precos", "/blog"];',
+        encoding="utf-8")
+    (raiz / "middleware.ts").write_text(
+        'export const config = { matcher: ["/((?!_next).*)"] };',
+        encoding="utf-8")
+    if com_defeito:
+        (raiz / "app" / "precos" / "page.tsx").write_text(
+            '<a href="/nao-existe">Ver</a>'
+            '<img src="%s">' % CDN_DE_TESTE, encoding="utf-8")
+    return str(raiz)
+
+
+def test_varredura_de_projeto_acha_rota_link_e_porteiro(tmp_path):
+    r = projeto.varrer(_projeto_next(tmp_path))
+    assert len(r["rotas"]) == 2
+    assert "/conta" in r["links"]
+    assert r["porteiro"] is not None
+    assert any(rota == "/conta" for rota, _onde in r["protegidas"])
+
+
+def test_MUTACAO_varredura_de_projeto_reprova_link_quebrado_e_cdn(tmp_path):
+    limpo = projeto.varrer(_projeto_next(tmp_path))
+    assert projeto.acusacoes(limpo, univ={"cdn_de_terceiro_permitido": False}) == []
+
+    sujo = projeto.varrer(_projeto_next(tmp_path / "b", com_defeito=True))
+    gates = [g for g, _t in projeto.acusacoes(
+        sujo, univ={"cdn_de_terceiro_permitido": False})]
+    assert "caminhos" in gates
+    assert "cdn-de-terceiro" in gates
+
+
+def test_MUTACAO_a_CLI_de_projeto_sai_1_com_exigir_e_0_sem(tmp_path):
+    """O que separa esta peca de um relatorio: com `--exigir`, ela REPROVA."""
+    raiz = _projeto_next(tmp_path, com_defeito=True)
+    assert projeto.main([raiz]) == OK                    # relata
+    assert projeto.main([raiz, "--exigir"]) == ACUSOU    # reprova
+
+
+def test_falso_positivo_opacidade_ZERO_nao_e_baixo_contraste(tmp_path):
+    """Medido num projeto real: 3.033 trechos com opacidade declarada, e parte
+    era `text-white/0` — estado inicial de animacao, texto que ainda nao
+    apareceu. A conta da 1,00:1 e reprova, certa pela aritmetica e errada pelo
+    sentido. Falso positivo em volume ensina a ignorar a linha inteira."""
+    raiz = tmp_path / "s"
+    (raiz / "app" / "x").mkdir(parents=True)
+    (raiz / "app" / "x" / "page.tsx").write_text(
+        '<p className="text-white/0">some</p>'
+        '<p className="text-white/70">aparece</p>', encoding="utf-8")
+    r = projeto.varrer(str(raiz))
+    assert r["invisiveis"] >= 1
+    assert all(c["trecho"] != "text-white/0" for c in r["contraste"])
+
+
+def test_pasta_sem_pagina_sai_3_e_3_nao_e_verde(tmp_path):
+    vazia = tmp_path / "vazia"
+    vazia.mkdir()
+    assert projeto.main([str(vazia)]) == NAO_MEDIR
+
+
+def test_varredura_de_projeto_em_pasta_inexistente_sai_2():
+    assert projeto.main(["nao/existe/em/lugar/nenhum"]) == NAO_USAR
+
 # ══════════════════════════════════════════════════════════════════════
 #
 # 🔴 `python testar_gates.py` SEM este bloco sai 0 sem executar um unico
@@ -525,11 +957,23 @@ def _rodar_sozinho():
         def mkdir(self, **_):
             os.makedirs(self, exist_ok=True)
 
+        @property
+        def parent(self):
+            return _Caminho(os.path.dirname(self))
+
         def write_text(self, txt, encoding="utf-8"):
             open(self, "w", encoding=encoding).write(txt)
 
         def write_bytes(self, b):
             open(self, "wb").write(b)
+
+        # 🔴 O REMENDO SO E' HONESTO ENQUANTO COBRE O QUE A SUITE USA.
+        # Faltava `read_text`, e o modo sem pytest reprovou UM teste que o
+        # modo com pytest aprovava. Os dois modos existem justamente para
+        # darem o MESMO veredito: se divergirem, um dos dois esta mentindo,
+        # e o CI roda o que mentir mais barato.
+        def read_text(self, encoding="utf-8"):
+            return open(self, encoding=encoding).read()
 
     testes = [(n, f) for n, f in sorted(globals().items())
               if n.startswith("test_") and inspect.isfunction(f)]
@@ -553,6 +997,93 @@ def _rodar_sozinho():
     print("")
     print("=== RESULTADO: %d de %d FALHA ===" % (len(falhas), len(testes)))
     return 1 if falhas else 0
+def test_MUTACAO_montagem_com_suite_vermelha_NAO_sai_zero(tmp_path):
+    """Achado por um agente cego rodando a suite DENTRO do clone.
+
+    A suite passava na casa e REPROVAVA no repositorio montado, no mesmo
+    instante. Causa: um teste usava uma data dentro do material de exemplo, e
+    a regra de destilacao apagou a data — corretamente, porque data e' contexto
+    da nossa operacao — deixando a asercao procurando um texto que nao existia
+    mais.
+
+    A montagem saia 0 e ninguem olhava: ela media privacidade e nao media se o
+    que acabara de escrever ainda FUNCIONA. Gate que aprova repositorio com a
+    suite vermelha e' um gate de privacidade com nome grande.
+    """
+    montado = tmp_path / "montado"
+    montado.mkdir()
+    suite = montado / "testar_gates.py"
+
+    verde = "import sys\nsys.exit(0)\n"
+    suite.write_text(verde, encoding="utf-8")
+    r = subprocess.run([sys.executable, "testar_gates.py"], cwd=str(montado),
+                       capture_output=True, text=True)
+    assert r.returncode == 0
+
+    vermelha = "import sys\nprint('=== RESULTADO: 1 de 1 FALHA ===')\nsys.exit(1)\n"
+    suite.write_text(vermelha, encoding="utf-8")
+    r2 = subprocess.run([sys.executable, "testar_gates.py"], cwd=str(montado),
+                        capture_output=True, text=True)
+    assert r2.returncode != 0, "suite vermelha tem de sair diferente de zero"
+
+
+def test_o_fixture_de_json_NAO_pode_carregar_data(tmp_path):
+    """O guarda permanente do defeito acima, e ele e' de PREVENCAO.
+
+    Qualquer data dentro de material de exemplo desta suite vira 'num caso
+    medido' na destilacao, e o teste que a procurava passa a falhar so no
+    repositorio publicado — onde ninguem roda antes de publicar.
+    """
+    data = re.compile(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{2}/\d{2}/\d{4}\b")
+    assert not data.search(_JSON_DE_SITE), (
+        "material de exemplo com data: a destilacao vai troca-la e o teste "
+        "vai falhar so no montado")
+
+
+def test_MUTACAO_terminal_estreito_NAO_derruba_o_veredito(tmp_path):
+    """Achado por um teste cego: um agente rodou o leitor numa pagina real, no
+    console padrao do Windows, e recebeu UnicodeEncodeError em vez do veredito.
+    A pagina tinha um emoji; o console estava em cp1252.
+
+    O texto auditado nunca esta sob nosso controle — vem da pagina de outra
+    pessoa, e vai ter emoji, seta e simbolo de moeda. Ferramenta que so
+    funciona depois que a pessoa descobre sozinha uma variavel de ambiente e'
+    ferramenta abandonada no primeiro erro.
+    """
+    import io
+    alvo = tmp_path / "p.html"
+    alvo.write_text("<p>Curso para eletricistas ⬇ desde 2015.</p>"
+                    "<p>Clique e garanta a sua vaga agora.</p>",
+                    encoding="utf-8")
+    estreito = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", newline="")
+    guardado = sys.stdout
+    try:
+        sys.stdout = estreito
+        cod = leitor.main([str(alvo)])
+    finally:
+        sys.stdout = guardado
+    assert cod == OK
+    estreito.flush()
+    bruto = estreito.buffer.getvalue().decode("utf-8", "replace")
+    assert "COMPREENSAO" in bruto
+
+
+def test_TODA_CLI_responde_sem_argumento_nenhum():
+    """O teste mais barato que existe, e ele faltava.
+
+    Um conserto de encoding aplicado as seis CLIs de uma vez deixou UMA delas
+    sem o import — e a suite inteira continuou verde, porque nenhum teste
+    chamava aquela peca como COMANDO. O erro so apareceu ao rodar o modulo na
+    mao, depois de o repositorio ja estar montado.
+
+    Teste de funcao nao cobre `main()`. E `main()` e' a unica parte que a
+    pessoa que clonou vai executar.
+    """
+    from esteira import aferir as _a, criar as _c, gate as _g
+    from esteira import leitor as _l, porta as _p
+    for modulo in (_g, _l, _a, _p, _c):
+        cod = modulo.main([])
+        assert cod in (OK, NAO_USAR, NAO_MEDIR), (modulo.__name__, cod)
 
 
 if __name__ == "__main__":

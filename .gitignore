@@ -7,6 +7,7 @@ __pycache__/
 # voce analisou, e material analisado costuma ser de cliente
 saida/
 _reprovados/
+auditoria/
 
 node_modules/
 .env

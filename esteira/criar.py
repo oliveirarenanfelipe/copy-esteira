@@ -36,6 +36,7 @@ import json
 import os
 import sys
 
+from esteira import saida_legivel
 from esteira import lentes, medidas
 from esteira.gate import (ACUSOU, NAO_MEDIR, NAO_USAR, OK, Achado,
                           carregar_reguas, escrever_saida, gate_forma,
@@ -181,6 +182,7 @@ def relatorio(r, peca):
 
 
 def main(argv=None):
+    saida_legivel()
     argv = list(sys.argv[1:] if argv is None else argv)
     livres = [a for a in argv if not a.startswith("--")]
     if not livres:

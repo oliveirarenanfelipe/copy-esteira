@@ -1,22 +1,42 @@
 {
   "_leia": [
-    "O REGISTRO DE REGUAS — em DADOS, nunca no codigo (R7).",
+    "O REGISTRO DE REGUAS — em DADOS, nunca no codigo.",
     "",
     "Cada tipo de peca tem a SUA regua. Uma regua unica reprovaria justamente",
-    "a peca que esta certa: a pagina de captura deve ter ZERO pergunta,",
-    "enquanto a de vendas deve ter cerca de sete por cento. Medido e escrito",
-    "em `o auditor anterior:105-107`, no projeto do um produto anterior.",
+    "a peca que esta certa: a pagina de captura deve ter perto de ZERO",
+    "pergunta, enquanto o anuncio fica perto de sete por cento. Os dois",
+    "numeros estao medidos abaixo, no campo `alvos` de cada tipo.",
     "",
-    "🔴 OS ALVOS AQUI NASCEM VAZIOS, E ISSO E' DE PROPOSITO (D-01, D-03).",
-    "Os numeros do um produto anterior sao ativo daquele produto e nao saem de la. Quem",
-    "clonar este repositorio enche com o corpus DELE, pelo metodo do §1 da",
-    "gramatica: medir as pecas que ja funcionaram e extrair o alvo.",
+    "🔴 OS ALVOS AQUI NASCEM CHEIOS, E ISSO SUBSTITUI A VERSAO ANTERIOR.",
     "",
-    "Alvo `null` significa 'nao ha regua medida para isto'. O gate NAO",
-    "reprova por alvo nulo: ele declara que nao mediu. Inventar numero aqui",
-    "seria a casca que a F0 mandou nao repetir."
+    "A versao anterior publicava os alvos vazios e mandava quem clonasse",
+    "encher com o corpus dela. Medido num clone limpo: ela enche com tres",
+    "pecas, a regua sai com trinta e cinco pontos de desvio, e reprova as tres",
+    "candidatas — inclusive as duas boas. Ela abre o relatorio, ve tudo",
+    "vermelho e desiste. Nao por defeito do motor: por regua ruim que o",
+    "produto obrigou ela a fabricar.",
+    "",
+    "Entao o que sobe sao os NUMEROS medidos de um corpus de copy em",
+    "portugues — e o material de onde eles sairam nao sobe, porque e' de quem",
+    "o escreveu. Quem clonar recebe a regua pronta E a ferramenta para refazer",
+    "a conta com o corpus dele: `python -m esteira.aferir`.",
+    "",
+    "COMO LER CADA FICHA",
+    "  alvos          a MEDIANA de cada metrica no corpus medido",
+    "  folgas         a tolerancia, saida do DESVIO do proprio corpus",
+    "  n              quantas pecas entraram na conta",
+    "  n_por_metrica  quantas pecas cada metrica alcancou (nem toda metrica",
+    "                 mede toda peca: `vicio` tem piso de palavras)",
+    "  regime         `limiar` o gate REPROVA por este alvo",
+    "                 `direcao` o corpus tem menos de 15 pecas: o numero",
+    "                 orienta e o gate NAO reprova",
+    "  testes         os cinco testes da regua, com o resultado colado",
+    "  fonte          de onde o corpus saiu",
+    "",
+    "Alvo `null` significa 'nao ha regua medida para isto'. O gate NAO reprova",
+    "por alvo nulo: ele declara que nao mediu. Inventar numero aqui seria",
+    "casca — le como medida e nao e'."
   ],
-
   "_metricas": {
     "pf": "palavras por frase",
     "curtas": "por cento de frases com ate 6 palavras",
@@ -24,74 +44,756 @@
     "seg": "por cento de marcas de segunda pessoa",
     "imper": "por cento de frases que abrem em imperativo",
     "trav": "travessoes por 100 palavras",
-    "ilf": "indice Flesch adaptado ao portugues (Martins et al., 1996)"
+    "ilf": "indice Flesch adaptado ao portugues (Martins et al., 1996)",
+    "vicio": "tiques de escrita por 1000 palavras (piso de 120 palavras)"
   },
-
   "_folgas": {
     "_leia": [
-      "Tolerancia por metrica, e ela e' ASSIMETRICA de proposito.",
-      "Herdada de `o auditor anterior:516-523`, que ja tinha medido que um",
-      "generico de mais ou menos dez por cento reprova o certo e passa o",
-      "errado. So o lado que importa e' vigiado: frase longa demais reprova,",
-      "frase curta demais nao."
+      "FOLGA DE RESERVA — vale so para ficha que ainda nao tem `folgas`",
+      "propria medida. A folga de verdade e' a de cada peca, tirada do desvio",
+      "do proprio corpus dela.",
+      "",
+      "Ela e' ASSIMETRICA de proposito: so o lado que importa e' vigiado.",
+      "Frase longa demais reprova; frase curta demais nao.",
+      "",
+      "🔴 ESTES NUMEROS SAO HERDADOS, E FOI ASSIM QUE UM DEFEITO VIAJOU.",
+      "A folga de palavras por frase era 2,0, herdada de outro projeto. O",
+      "desvio real do corpus deu 2,3 — a folga estava ABAIXO do espalhamento",
+      "natural do material e reprovava oito de quarenta e sete pecas",
+      "legitimas. A folga estava errada, nao o corpus. Ficam aqui como ultimo",
+      "recurso, e nunca como alvo a perseguir."
     ],
-    "pf": {"acima": 2.0, "abaixo": null},
-    "curtas": {"acima": null, "abaixo": 15.0},
-    "perg": {"acima": 10.0, "abaixo": null},
-    "seg": {"acima": null, "abaixo": 15.0},
-    "imper": {"acima": 12.0, "abaixo": null},
-    "trav": {"acima": 15.0, "abaixo": null},
-    "ilf": {"acima": null, "abaixo": 20.0}
+    "pf": {
+      "acima": 2.0,
+      "abaixo": null
+    },
+    "curtas": {
+      "acima": null,
+      "abaixo": 15.0
+    },
+    "perg": {
+      "acima": 10.0,
+      "abaixo": null
+    },
+    "seg": {
+      "acima": null,
+      "abaixo": 15.0
+    },
+    "imper": {
+      "acima": 12.0,
+      "abaixo": null
+    },
+    "trav": {
+      "acima": 15.0,
+      "abaixo": null
+    },
+    "ilf": {
+      "acima": null,
+      "abaixo": 20.0
+    },
+    "vicio": {
+      "acima": 15.0,
+      "abaixo": null
+    }
   },
-
   "pecas": {
     "pagina-de-vendas": {
       "rotulo": "pagina de vendas",
-      "alvos": {"pf": null, "curtas": null, "perg": null, "seg": null,
-                "imper": null, "trav": null, "ilf": null},
-      "fonte": "vazio — encher com o corpus de quem clonar"
+      "alvos": {
+        "pf": 14.8,
+        "curtas": 27.6,
+        "perg": 8.9,
+        "seg": 46.5,
+        "imper": 2.0,
+        "trav": 0.2,
+        "ilf": 58.0,
+        "vicio": 7.5
+      },
+      "n": 10,
+      "regime": "direcao",
+      "fonte": "3 paginas de vendas do disco, de um produto so, mais 4 paginas de venda brasileiras colhidas da web viva, uma por dominio. SELECAO POR ALCANCE, NAO POR QUALIDADE: e o que a busca indexa, e pagina que converte costuma rodar em trafego pago e nao estar indexada. Sem evidencia de conversao, entra como direcao e nao reprova.",
+      "folgas": {
+        "pf": {
+          "acima": 8.4,
+          "abaixo": null
+        },
+        "curtas": {
+          "acima": null,
+          "abaixo": 15.3
+        },
+        "perg": {
+          "acima": 15.6,
+          "abaixo": null
+        },
+        "seg": {
+          "acima": null,
+          "abaixo": 42.9
+        },
+        "imper": {
+          "acima": 5.9,
+          "abaixo": null
+        },
+        "trav": {
+          "acima": 1.9,
+          "abaixo": null
+        },
+        "ilf": {
+          "acima": null,
+          "abaixo": 26.2
+        },
+        "vicio": {
+          "acima": 16.1,
+          "abaixo": null
+        }
+      },
+      "n_por_metrica": {
+        "pf": 10,
+        "curtas": 10,
+        "perg": 10,
+        "seg": 10,
+        "imper": 10,
+        "trav": 10,
+        "ilf": 10,
+        "vicio": 10
+      },
+      "alvos_sem_regua": {},
+      "testes": [
+        {
+          "teste": "0 dispersao",
+          "passam": 5,
+          "de": 10,
+          "pct": 50.0,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "1 validacao cruzada",
+          "passam": 3,
+          "de": 5,
+          "pct": 60.0,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "2 discriminacao",
+          "reprova": 7,
+          "de": 7,
+          "pct": 100.0,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "3 falso positivo",
+          "veredito": "nao-mediu",
+          "nota": "sem peca boa de fora do corpus"
+        },
+        {
+          "teste": "4 cruzada",
+          "veredito": "nao-mediu",
+          "nota": "so um grupo no corpus: nao ha com quem cruzar"
+        }
+      ]
     },
     "pagina-de-captura": {
       "rotulo": "pagina de captura",
-      "alvos": {"pf": null, "curtas": null, "perg": null, "seg": null,
-                "imper": null, "trav": null, "ilf": null},
-      "fonte": "vazio — encher com o corpus de quem clonar"
+      "alvos": {
+        "pf": 10.7,
+        "curtas": 37.2,
+        "perg": 9.0,
+        "seg": 40.2,
+        "imper": 0.0,
+        "trav": 2.6,
+        "ilf": 63.7,
+        "vicio": 29.6
+      },
+      "fonte": "paginas de captura reais, texto visivel pela Camada 0",
+      "folgas": {
+        "pf": {
+          "acima": 1.6,
+          "abaixo": null
+        },
+        "curtas": {
+          "acima": null,
+          "abaixo": 17.8
+        },
+        "perg": {
+          "acima": 10.1,
+          "abaixo": null
+        },
+        "seg": {
+          "acima": null,
+          "abaixo": 22.9
+        },
+        "imper": {
+          "acima": 3.4,
+          "abaixo": null
+        },
+        "trav": {
+          "acima": 1.1,
+          "abaixo": null
+        },
+        "ilf": {
+          "acima": null,
+          "abaixo": 20.6
+        },
+        "vicio": {
+          "acima": 10.9,
+          "abaixo": null
+        }
+      },
+      "n": 7,
+      "n_por_metrica": {
+        "pf": 7,
+        "curtas": 7,
+        "perg": 7,
+        "seg": 7,
+        "imper": 7,
+        "trav": 7,
+        "ilf": 7,
+        "vicio": 7
+      },
+      "regime": "direcao",
+      "testes": [
+        {
+          "teste": "0 dispersao",
+          "passam": 5,
+          "de": 7,
+          "pct": 71.4,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "1 validacao cruzada",
+          "veredito": "nao-mediu",
+          "nota": "menos de 8 pecas: metade de um corpus pequeno nao e corpus"
+        },
+        {
+          "teste": "2 discriminacao",
+          "reprova": 7,
+          "de": 7,
+          "pct": 100.0,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "3 falso positivo",
+          "veredito": "nao-mediu",
+          "nota": "sem peca boa de fora do corpus"
+        },
+        {
+          "teste": "4 cruzada",
+          "veredito": "nao-mediu",
+          "nota": "so um grupo no corpus: nao ha com quem cruzar"
+        }
+      ],
+      "alvos_sem_regua": {}
+    },
+    "pagina-de-obrigado": {
+      "rotulo": "pagina de obrigado",
+      "alvos": {
+        "pf": 18.0,
+        "curtas": 38.7,
+        "perg": 12.9,
+        "seg": 38.7,
+        "imper": 0.0,
+        "trav": 2.0,
+        "ilf": 51.1,
+        "vicio": 21.5
+      },
+      "fonte": "paginas de obrigado reais, texto visivel pela Camada 0",
+      "folgas": {
+        "pf": {
+          "acima": 4.0,
+          "abaixo": null
+        },
+        "curtas": {
+          "acima": null,
+          "abaixo": 13.3
+        },
+        "perg": {
+          "acima": 5.7,
+          "abaixo": null
+        },
+        "seg": {
+          "acima": null,
+          "abaixo": 56.6
+        },
+        "imper": {
+          "acima": 13.4,
+          "abaixo": null
+        },
+        "trav": {
+          "acima": 0.7,
+          "abaixo": null
+        },
+        "ilf": {
+          "acima": null,
+          "abaixo": 24.1
+        },
+        "vicio": {
+          "acima": 9.8,
+          "abaixo": null
+        }
+      },
+      "n": 5,
+      "n_por_metrica": {
+        "pf": 5,
+        "curtas": 5,
+        "perg": 5,
+        "seg": 5,
+        "imper": 5,
+        "trav": 5,
+        "ilf": 5,
+        "vicio": 5
+      },
+      "regime": "direcao",
+      "testes": [
+        {
+          "teste": "0 dispersao",
+          "passam": 4,
+          "de": 5,
+          "pct": 80.0,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "1 validacao cruzada",
+          "veredito": "nao-mediu",
+          "nota": "menos de 8 pecas: metade de um corpus pequeno nao e corpus"
+        },
+        {
+          "teste": "2 discriminacao",
+          "reprova": 7,
+          "de": 7,
+          "pct": 100.0,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "3 falso positivo",
+          "veredito": "nao-mediu",
+          "nota": "sem peca boa de fora do corpus"
+        },
+        {
+          "teste": "4 cruzada",
+          "veredito": "nao-mediu",
+          "nota": "so um grupo no corpus: nao ha com quem cruzar"
+        }
+      ],
+      "alvos_sem_regua": {}
     },
     "pagina-institucional": {
       "rotulo": "pagina institucional ou home de produto",
-      "alvos": {"pf": null, "curtas": null, "perg": null, "seg": null,
-                "imper": null, "trav": null, "ilf": null},
-      "fonte": "vazio — encher com o corpus de quem clonar"
+      "alvos": {
+        "pf": 13.2,
+        "curtas": 18.9,
+        "perg": 11.9,
+        "seg": 13.3,
+        "imper": 0.0,
+        "trav": 0.6,
+        "ilf": 68.0,
+        "vicio": 11.5
+      },
+      "n": 18,
+      "regime": "direcao",
+      "fonte": "paginas institucionais e de produto de UM site em producao, texto colhido de `data/*.json` e do componente. Origem unica, sem medicao de conversao associada: orienta, nao reprova.",
+      "folgas": {
+        "pf": {
+          "acima": 5.1,
+          "abaixo": null
+        },
+        "curtas": {
+          "acima": null,
+          "abaixo": 23.3
+        },
+        "perg": {
+          "acima": 12.4,
+          "abaixo": null
+        },
+        "seg": {
+          "acima": null,
+          "abaixo": 20.5
+        },
+        "imper": {
+          "acima": 6.1,
+          "abaixo": null
+        },
+        "trav": {
+          "acima": 1.1,
+          "abaixo": null
+        },
+        "ilf": {
+          "acima": null,
+          "abaixo": 17.5
+        },
+        "vicio": {
+          "acima": 13.5,
+          "abaixo": null
+        }
+      },
+      "n_por_metrica": {
+        "pf": 18,
+        "curtas": 18,
+        "perg": 18,
+        "seg": 18,
+        "imper": 18,
+        "trav": 18,
+        "ilf": 18,
+        "vicio": 17
+      },
+      "alvos_sem_regua": {},
+      "testes": [
+        {
+          "teste": "0 dispersao",
+          "passam": 16,
+          "de": 18,
+          "pct": 88.9,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "1 validacao cruzada",
+          "passam": 6,
+          "de": 9,
+          "pct": 66.7,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "2 discriminacao",
+          "reprova": 7,
+          "de": 7,
+          "pct": 100.0,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "3 falso positivo",
+          "veredito": "nao-mediu",
+          "nota": "sem peca boa de fora do corpus"
+        },
+        {
+          "teste": "4 cruzada",
+          "veredito": "nao-mediu",
+          "nota": "so um grupo no corpus: nao ha com quem cruzar"
+        }
+      ]
     },
     "email": {
       "rotulo": "corpo de e-mail",
-      "alvos": {"pf": null, "curtas": null, "perg": null, "seg": null,
-                "imper": null, "trav": null, "ilf": null},
-      "fonte": "vazio — encher com o corpus de quem clonar"
+      "alvos": {
+        "pf": 11.5,
+        "curtas": 29.3,
+        "perg": 0.0,
+        "seg": 40.0,
+        "imper": 0.0,
+        "trav": 1.9,
+        "ilf": 73.2,
+        "vicio": null
+      },
+      "fonte": "corpus de e-mail de lancamento em portugues, fatiado um a um",
+      "folgas": {
+        "pf": {
+          "acima": 4.7,
+          "abaixo": null
+        },
+        "curtas": {
+          "acima": null,
+          "abaixo": 32.7
+        },
+        "perg": {
+          "acima": 12.1,
+          "abaixo": null
+        },
+        "seg": {
+          "acima": null,
+          "abaixo": 30.8
+        },
+        "imper": {
+          "acima": 12.5,
+          "abaixo": null
+        },
+        "trav": {
+          "acima": 1.6,
+          "abaixo": null
+        },
+        "ilf": {
+          "acima": null,
+          "abaixo": 17.0
+        },
+        "vicio": {
+          "acima": null,
+          "abaixo": null
+        }
+      },
+      "n": 44,
+      "n_por_metrica": {
+        "pf": 44,
+        "curtas": 44,
+        "perg": 44,
+        "seg": 44,
+        "imper": 44,
+        "trav": 44,
+        "ilf": 44,
+        "vicio": 3
+      },
+      "regime": "limiar",
+      "testes": [
+        {
+          "teste": "0 dispersao",
+          "passam": 33,
+          "de": 44,
+          "pct": 75.0,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "1 validacao cruzada",
+          "passam": 13,
+          "de": 22,
+          "pct": 59.1,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "2 discriminacao",
+          "reprova": 7,
+          "de": 7,
+          "pct": 100.0,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "3 falso positivo",
+          "passam": 4,
+          "de": 7,
+          "pct": 57.1,
+          "veredito": "passa",
+          "nota": "[mesmas 7 pecas do outro teste: nao sao medicoes independentes]"
+        },
+        {
+          "teste": "4 cruzada",
+          "pior": 57.1,
+          "veredito": "passa",
+          "nota": "[mesmas 7 pecas do outro teste: nao sao medicoes independentes]"
+        }
+      ],
+      "alvos_sem_regua": {
+        "vicio": "sem regua: 3 de 44 peca(s) alcancaram esta metrica, e o regime `limiar` exige 15. Ausencia declarada, nao alvo inventado."
+      }
     },
     "anuncio": {
       "rotulo": "anuncio",
-      "alvos": {"pf": null, "curtas": null, "perg": null, "seg": null,
-                "imper": null, "trav": null, "ilf": null},
-      "fonte": "vazio — encher com o corpus de quem clonar"
+      "alvos": {
+        "pf": 7.8,
+        "curtas": 50.0,
+        "perg": 7.1,
+        "seg": 42.9,
+        "imper": 0.0,
+        "trav": 0.9,
+        "ilf": 81.0,
+        "vicio": null
+      },
+      "fonte": "roteiros de anuncio em portugues, um roteiro por peca",
+      "folgas": {
+        "pf": {
+          "acima": 6.6,
+          "abaixo": null
+        },
+        "curtas": {
+          "acima": null,
+          "abaixo": 19.4
+        },
+        "perg": {
+          "acima": 8.3,
+          "abaixo": null
+        },
+        "seg": {
+          "acima": null,
+          "abaixo": 21.5
+        },
+        "imper": {
+          "acima": 4.8,
+          "abaixo": null
+        },
+        "trav": {
+          "acima": 1.0,
+          "abaixo": null
+        },
+        "ilf": {
+          "acima": null,
+          "abaixo": 14.8
+        },
+        "vicio": {
+          "acima": null,
+          "abaixo": null
+        }
+      },
+      "n": 35,
+      "n_por_metrica": {
+        "pf": 35,
+        "curtas": 35,
+        "perg": 35,
+        "seg": 35,
+        "imper": 35,
+        "trav": 35,
+        "ilf": 35,
+        "vicio": 13
+      },
+      "regime": "limiar",
+      "testes": [
+        {
+          "teste": "0 dispersao",
+          "passam": 22,
+          "de": 35,
+          "pct": 62.9,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "1 validacao cruzada",
+          "passam": 9,
+          "de": 17,
+          "pct": 52.9,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "2 discriminacao",
+          "reprova": 7,
+          "de": 7,
+          "pct": 100.0,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "3 falso positivo",
+          "veredito": "nao-mediu",
+          "nota": "sem peca boa de fora do corpus"
+        },
+        {
+          "teste": "4 cruzada",
+          "veredito": "nao-mediu",
+          "nota": "so um grupo no corpus: nao ha com quem cruzar"
+        }
+      ],
+      "alvos_sem_regua": {
+        "vicio": "sem regua: 13 de 35 peca(s) alcancaram esta metrica, e o regime `limiar` exige 15. Ausencia declarada, nao alvo inventado."
+      }
     },
     "mensagem": {
       "rotulo": "mensagem de grupo ou mensageiro",
-      "alvos": {"pf": null, "curtas": null, "perg": null, "seg": null,
-                "imper": null, "trav": null, "ilf": null},
-      "fonte": "vazio — encher com o corpus de quem clonar"
+      "alvos": {
+        "pf": 6.0,
+        "curtas": 66.7,
+        "perg": 0.0,
+        "seg": 33.3,
+        "imper": 0.0,
+        "trav": 0.0,
+        "ilf": 84.5,
+        "vicio": null
+      },
+      "fonte": "mensagens de grupo de um lancamento em portugues",
+      "folgas": {
+        "pf": {
+          "acima": 9.6,
+          "abaixo": null
+        },
+        "curtas": {
+          "acima": null,
+          "abaixo": 66.6
+        },
+        "perg": {
+          "acima": 41.3,
+          "abaixo": null
+        },
+        "seg": {
+          "acima": null,
+          "abaixo": 66.5
+        },
+        "imper": {
+          "acima": null,
+          "abaixo": null
+        },
+        "trav": {
+          "acima": 3.2,
+          "abaixo": null
+        },
+        "ilf": {
+          "acima": null,
+          "abaixo": 24.1
+        },
+        "vicio": {
+          "acima": null,
+          "abaixo": null
+        }
+      },
+      "n": 59,
+      "n_por_metrica": {
+        "pf": 59,
+        "curtas": 59,
+        "perg": 59,
+        "seg": 59,
+        "imper": 59,
+        "trav": 59,
+        "ilf": 59,
+        "vicio": 0
+      },
+      "regime": "limiar",
+      "testes": [
+        {
+          "teste": "0 dispersao",
+          "passam": 40,
+          "de": 59,
+          "pct": 67.8,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "1 validacao cruzada",
+          "passam": 21,
+          "de": 29,
+          "pct": 72.4,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "2 discriminacao",
+          "reprova": 6,
+          "de": 7,
+          "pct": 85.7,
+          "veredito": "passa",
+          "nota": ""
+        },
+        {
+          "teste": "3 falso positivo",
+          "veredito": "nao-mediu",
+          "nota": "sem peca boa de fora do corpus"
+        },
+        {
+          "teste": "4 cruzada",
+          "veredito": "nao-mediu",
+          "nota": "so um grupo no corpus: nao ha com quem cruzar"
+        }
+      ],
+      "alvos_sem_regua": {
+        "vicio": "sem regua: 0 de 59 peca(s) alcancaram esta metrica, e o regime `limiar` exige 15. Ausencia declarada, nao alvo inventado."
+      }
     }
   },
-
   "universal": {
     "_leia": [
-      "A UNICA regua que nasce cheia (D-03). Ela nao depende de corpus de",
-      "ninguem: sai da especificacao da WCAG e da medicao que a casa exige",
-      "em toda pagina que capta lead ou vende."
+      "A regua que NAO depende de corpus de ninguem: sai da especificacao da",
+      "WCAG e da medicao que toda pagina que capta lead ou vende precisa ter.",
+      "Ela vale igual para todo tipo de peca."
     ],
     "contraste_minimo": 4.5,
     "contraste_minimo_texto_grande": 3.0,
-    "medicao_exigida": ["pixel", "ga4", "clarity"],
+    "medicao_exigida": [
+      "pixel",
+      "ga4",
+      "clarity"
+    ],
     "link_interno_quebrado": 0,
     "cdn_de_terceiro_permitido": false
   }
