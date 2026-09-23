@@ -4,7 +4,7 @@
     python -m esteira.projeto <pasta-do-projeto>
     python -m esteira.projeto <pasta> --exigir
 
-CHAMADOR: a CLI acima, pelo `main()` no fim deste arquivo; `esteira/gabarito.py`,
+CHAMADOR: a CLI acima, pelo `main()` no fim deste arquivo; o aferidor de gabarito da casa,
 que compara a saida daqui com um gabarito medido a mao; e `testar_gates.py`.
 E' o chamador de `esteira/varredura.py` e de `esteira/medidas.py`.
 

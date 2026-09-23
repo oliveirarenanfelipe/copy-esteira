@@ -3,8 +3,8 @@
 
     python -m esteira.porta "audita a copy da minha pagina de vendas em ./lp"
 
-CHAMADOR: a CLI acima, pelo `main()` no fim deste arquivo; `testar_porta.py`;
-e `docs/F5-PORTA.md`, que cola as execucoes repetidas.
+CHAMADOR: a CLI acima, pelo `main()` no fim deste arquivo; `testar_gates.py`;
+e a documentacao da casa, que cola as execucoes repetidas.
 
 JA EXISTIA? A casa tem roteadores por LLM (o `copy-chief` do squad, o
 `/route`), e eles sao exatamente o que NAO serve aqui — ver abaixo.
@@ -111,12 +111,6 @@ def planejar(pedido):
     if caminho is None:
         falta.append("o caminho do material")
 
-    comando = None
-    if not falta:
-        alvo = "esteira.criar" if acao == "criar" else "esteira.gate"
-        comando = ("python -m %s %s --peca %s --saida ./saida"
-                   % (alvo, caminho, peca))
-
     return {
         "pedido": pedido,
         "acao": acao,
@@ -125,9 +119,42 @@ def planejar(pedido):
         "gatilho_peca": gatilho_peca,
         "caminho": caminho,
         "falta": falta,
-        "comando": comando,
+        "comandos": [] if falta else roteiro(acao, caminho, peca),
         "executa": False,
     }
+
+
+def roteiro(acao, caminho, peca):
+    """Os comandos, na ordem em que rodam. Sempre uma LISTA.
+
+    🔴 `esteira.criar` NAO LE PAGINA: le um JSON de candidatas.
+
+    A versao anterior montava um comando so, e para a acao `criar` ela punha o
+    caminho da PAGINA onde vai o arquivo de candidatas. Medido num clone
+    limpo: o comando que a porta propunha saia 3 ("nao deu para ler as
+    candidatas") toda vez. A porta e' a primeira coisa que um agente de fora
+    le, e ela entregava um comando que nunca funciona.
+
+    O conserto nao e' trocar o caminho: e' parar de fingir que criar copy e'
+    um passo so. Quem vai escrever a manchete nova precisa ANTES dos fatos da
+    peca — e e' por isso que o roteiro de `criar` comeca pela auditoria.
+    """
+    auditar = [
+        "python -m esteira.projeto %s" % caminho,
+        "python -m esteira.gate %s --peca %s --saida ./saida" % (caminho, peca),
+        "python -m esteira.leitor %s" % caminho,
+    ]
+    if acao == "medir":
+        return ["python -m esteira.gate %s --peca %s --saida ./saida"
+                % (caminho, peca)]
+    if acao == "criar":
+        return auditar + [
+            "# escreva as candidatas num JSON, no molde de"
+            " `exemplos/candidatas.json`",
+            "python -m esteira.criar ./candidatas.json --peca %s"
+            " --saida ./saida" % peca,
+        ]
+    return auditar
 
 
 def impressao(p):
@@ -147,8 +174,9 @@ def impressao(p):
         for f in p["falta"]:
             L.append("    - %s" % f)
     else:
-        L.append("  comando proposto:")
-        L.append("    %s" % p["comando"])
+        L.append("  roteiro proposto, nesta ordem:")
+        for c in p["comandos"]:
+            L.append("    %s" % c)
         L.append("")
         L.append("  Nada foi executado. Confirme para rodar.")
     return "\n".join(L)

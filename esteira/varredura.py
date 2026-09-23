@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """CAMADA 1, varredura de PROJETO — o que um arquivo sozinho nao mostra.
 
-CHAMADOR: `esteira/gabarito.py` (o reencontro da F3) e `testar_varredura.py`.
+CHAMADOR: o aferidor de gabarito da casa (o reencontro da F3) e `testar_gates.py`.
 
 Os gates de `gate.py` olham UM arquivo. Tres tipos de achado so existem
 quando se olha o projeto inteiro:
@@ -70,7 +70,21 @@ def _e_teste(nome, base):
             or "__mocks__" in base.replace("\\", "/").lower())
 
 
-def _arquivos(raiz, exts=(".tsx", ".jsx", ".ts", ".js"), com_teste=False):
+def _arquivos(raiz, exts=(".tsx", ".jsx", ".ts", ".js", ".html", ".htm"),
+              com_teste=False):
+    """🔴 `.html` ENTROU, e a falta dele nao aparecia como erro.
+
+    A lista era so a familia do JavaScript. Efeito medido: sobre uma pagina de
+    vendas real, `python -m esteira.projeto <pasta>` respondia "nenhum arquivo
+    de pagina" e saia 3 — e a MESMA pagina, com os MESMOS bytes, renomeada para
+    `.jsx`, devolvia 1 arquivo e 5 recursos de terceiro em tempo de execucao.
+    A varredura tinha o que dizer e calou por causa da extensao.
+
+    O 3 nunca foi um falso verde, porque 3 nao e' verde. Mas um site estatico
+    inteiro lido como pasta vazia e' a capacidade que nao alcanca o material —
+    e site estatico e' o caso comum de quem clona isto para auditar uma
+    landing page.
+    """
     for base, dirs, arqs in os.walk(raiz):
         dirs[:] = [d for d in dirs if d not in IGNORA]
         for a in arqs:
@@ -129,6 +143,23 @@ def rotas(raiz):
         cru = resto[2] if len(resto) > 2 else ""
         partes = [x for x in cru.split("/") if x and not _GRUPO.fullmatch(x)]
         achadas["/" + "/".join(partes)] = caminho
+
+    # 🔴 NO SITE ESTATICO A ROTA E' O PROPRIO ARQUIVO NO DISCO.
+    # Sem isto, aceitar `.html` em `_arquivos` teria criado o alarme falso que
+    # o comentario acima descreve: com o mapa de rotas VAZIO, `quebrados()`
+    # devolve TODO link interno como quebrado, e o gate acusaria o site
+    # inteiro. Ler a pagina e nao saber para onde os links dela apontam e' pior
+    # que nao ler a pagina.
+    for caminho in _arquivos(raiz, (".html", ".htm")):
+        rel = os.path.relpath(caminho, raiz).replace("\\", "/")
+        pasta, _, nome = rel.rpartition("/")
+        base = nome.rsplit(".", 1)[0]
+        if base == "index":
+            rota = ("/" + pasta) if pasta else "/"
+        else:
+            rota = "/" + ("%s/%s" % (pasta, base) if pasta else base)
+        # `setdefault`: rota declarada pelo roteador vence a deduzida do disco
+        achadas.setdefault(rota, caminho)
     return achadas
 
 

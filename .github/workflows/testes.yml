@@ -10,6 +10,18 @@
 #
 # Esta e' a defesa que NAO depende de ninguem lembrar de ligar nada. O hook
 # `pre-push` e' a segunda camada, e depende de um `git config` por clone.
+#
+# 🔴 POR QUE EXISTE UM SEGUNDO PASSO, E ELE NAO E' REDUNDANCIA
+# -------------------------------------------------------------
+# Este arquivo rodava UMA linha. Medido num clone limpo com ela verde: o
+# `esteira.criar` saia 0 com candidata reprovada no arquivo, e seis
+# cabecalhos declaravam chamador que nao existe. Verde de suite significava
+# "as funcoes respondem", nunca "a ferramenta funciona".
+#
+# O passo `Comandos` roda o que a pessoa que clonou realmente digita, e roda
+# FORA da suite de proposito: se o `testar_gates.py` for apagado, afrouxado ou
+# perder o bloco `__main__`, este passo continua reprovando sozinho. Um gate
+# que depende do outro e' um gate so.
 name: testes
 
 on:
@@ -34,5 +46,38 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+
       - name: Suite
         run: python -B testar_gates.py
+
+      # As seis CLIs, como COMANDO. Sem argumento cada uma tem de pedir o que
+      # falta e sair 2. Comando mudo que sai 0 e' o falso verde mais barato de
+      # produzir e o mais caro de descobrir.
+      - name: Comandos
+        run: |
+          set -eu
+          for m in porta projeto gate leitor criar aferir; do
+            saida="$(python -B -m esteira.$m 2>&1)" && codigo=0 || codigo=$?
+            printf '%s -> exit %s\n' "$m" "$codigo"
+            printf '%s\n' "$saida"
+            test "$codigo" = 2 || { echo "FALHOU: esteira.$m saiu $codigo, esperado 2"; exit 1; }
+            test -n "$saida"   || { echo "FALHOU: esteira.$m nao imprimiu nada"; exit 1; }
+          done
+
+      # O caminho inteiro sobre o exemplo que sobe no proprio repositorio. Ele
+      # traz UMA candidata ilegivel de proposito, entao o comando TEM de
+      # acusar: se sair 0, a esteira voltou a aprovar copy que ela reprova.
+      - name: Caminho inteiro
+        run: |
+          set -eu
+          python -B -m esteira.porta "audita a copy da pagina de vendas em ./x"
+          python -B -m esteira.aferir exemplos/controle-ruim --peca pagina-de-vendas
+          codigo=0
+          python -B -m esteira.criar exemplos/candidatas.json \
+            --peca pagina-de-vendas --saida ./saida-ci || codigo=$?
+          test "$codigo" = 1 || { echo "FALHOU: criar saiu $codigo com copy ilegivel no exemplo"; exit 1; }
+          test -f ./saida-ci/copy-nova.txt \
+            || { echo "FALHOU: a copy aprovada nao chegou na pasta que se abre"; exit 1; }
+          test -f ./saida-ci/_reprovados/copy-nova-reprovadas.txt \
+            || { echo "FALHOU: a copy reprovada nao foi separada"; exit 1; }
+          echo "caminho inteiro: aprovada e reprovada em arquivos separados"

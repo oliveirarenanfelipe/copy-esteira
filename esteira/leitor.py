@@ -5,7 +5,7 @@
     python -m esteira.leitor <caminho> --exigir 6
     python -m esteira.leitor <pasta-do-projeto> --publico
 
-CHAMADOR: a CLI acima, pelo `main()` no fim deste arquivo; `esteira/gabarito.py`,
+CHAMADOR: a CLI acima, pelo `main()` no fim deste arquivo; o aferidor de gabarito da casa,
 que usa esta peca para os dois itens do gabarito que a Camada 1 nao alcanca; e
 `testar_gates.py`. E' o chamador de `esteira/corpus.py`.
 

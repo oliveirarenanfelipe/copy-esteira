@@ -6,8 +6,8 @@
 CHAMADOR: `.github/workflows/testes.yml`, reapontado para ca no mesmo commit,
 e o hook `pre-push` da F6.
 
-SUBSTITUI o `testar_fumaca.py`, por ordem dele proprio: "O primeiro teste de
-verdade SUBSTITUI este - nao o acumule."
+SUBSTITUI o teste de fumaca anterior, por ordem dele proprio: "O primeiro teste
+de verdade SUBSTITUI este - nao o acumule."
 
 🔴 POR QUE MUTACAO, E POR QUE ELA E' A CONDICAO DE FECHAMENTO DA F2
 -------------------------------------------------------------------
@@ -35,7 +35,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from esteira import aferir, leitor, medidas, projeto           # noqa: E402
+from esteira import aferir, criar, leitor, medidas, projeto    # noqa: E402
 from esteira import lentes, varredura                          # noqa: E402
 from esteira.corpus import (                                   # noqa: E402
     colher, colher_json, colher_marcado, colher_pasta,
@@ -1084,6 +1084,421 @@ def test_TODA_CLI_responde_sem_argumento_nenhum():
     for modulo in (_g, _l, _a, _p, _c):
         cod = modulo.main([])
         assert cod in (OK, NAO_USAR, NAO_MEDIR), (modulo.__name__, cod)
+
+
+# ---------------------------------------------------------------------------
+# CAMADA 5 — o `criar`, que era a unica peca do motor sem teste de COMPORTAMENTO
+#
+# Havia UMA linha tocando nele na suite inteira: o import dentro de
+# `test_TODA_CLI_responde_sem_argumento_nenhum`, que so prova que a CLI nao
+# explode sem argumento. Nada media o que ela FAZ — e ela e' a peca que escreve
+# copy. Os testes abaixo nasceram de quatro defeitos medidos num clone limpo.
+# ---------------------------------------------------------------------------
+
+def _regua_sintetica(texto, regime="limiar", folga_da_peca=20.0,
+                     folga_reserva=0.0, acima_do_alvo=10.0):
+    """Uma regua montada EM VOLTA do texto que o teste vai medir.
+
+    Sem isto o teste dependeria dos numeros do `reguas.json`, que mudam toda
+    vez que o corpus e' re-aferido — e um teste que quebra quando a regua e'
+    recalibrada ensina a pessoa a apagar o teste, nao a olhar a regua.
+    """
+    ilf = medidas.legibilidade(texto)["ilf"]
+    return {
+        "_folgas": {"ilf": {"acima": None, "abaixo": folga_reserva}},
+        "pecas": {"teste": {
+            "regime": regime,
+            "alvos": {"ilf": ilf + acima_do_alvo},
+            "folgas": {"ilf": {"acima": None, "abaixo": folga_da_peca}},
+        }},
+    }
+
+
+BOA = ("Voce faz o servico bem feito e perde a obra no preco. "
+       "O problema nao e a sua tecnica.")
+ILEGIVEL = ("A consubstanciacao de instrumentos contratuais padronizados "
+            "pressupoe a internalizacao de paradigmas gerenciais que "
+            "viabilizem a otimizacao dos processos de precificacao no ambito "
+            "das atividades eletrotecnicas desenvolvidas em carater autonomo.")
+
+
+def _entrada(tmp_path, candidatas):
+    alvo = tmp_path / "candidatas.json"
+    alvo.write_text(json.dumps({
+        "contexto": {"tipo_de_produto": "kit digital",
+                     "tem_oferta": True, "tem_prova": True},
+        "candidatas": candidatas,
+    }, ensure_ascii=False), encoding="utf-8")
+    return alvo
+
+
+def test_criar_usa_a_folga_MEDIDA_da_peca_igual_ao_gate():
+    """MUTACAO: trocar `ficha['folgas']` pela de reserva faz este teste cair.
+
+    O `gate.py` ja escreve, no proprio comentario, por que a folga da peca vem
+    primeiro: "foi herdando folga que um defeito viajou de um projeto para
+    outro". O `criar` lia SO a de reserva, entao julgava a copy que a esteira
+    escreve por uma regua mais dura que a aplicada a copy dos outros.
+
+    Medido na `pagina-de-vendas` antes do conserto: piso de `seg` era 3,6 pelo
+    gate e 31,5 pelo criar. O texto da promessa no cabecalho do `criar.py` —
+    "passa pelos MESMOS gates da Camada 1" — era falso.
+    """
+    reg = _regua_sintetica(BOA, folga_da_peca=20.0, folga_reserva=0.0)
+    achados, cod = criar.medir_candidata(BOA, "teste", reg)
+    leg = [a for a in achados if a.gate == "legibilidade"][0]
+    assert leg.veredito == "passa", (
+        "usou a folga de reserva, nao a da peca; limiar aplicado: %s"
+        % leg.limiar)
+    assert cod == OK
+
+
+def test_criar_respeita_o_regime_da_peca_igual_ao_gate():
+    """MUTACAO: parar de passar `regime` faz este teste cair.
+
+    Regime `direcao` NAO reprova, por contrato — e o `criar` nao passava o
+    regime adiante, entao caia no default `limiar` e reprovava. A
+    `pagina-de-vendas` esta registrada como `direcao`.
+    """
+    reg = _regua_sintetica(ILEGIVEL, regime="direcao", folga_da_peca=0.0,
+                           folga_reserva=0.0, acima_do_alvo=10.0)
+    achados, cod = criar.medir_candidata(ILEGIVEL, "teste", reg)
+    leg = [a for a in achados if a.gate == "legibilidade"][0]
+    assert leg.veredito == "passa", "direcao nao pode reprovar"
+    assert leg.confianca == "baixa"
+
+
+def test_criar_com_candidata_reprovada_NAO_sai_zero(tmp_path):
+    """MUTACAO: voltar para `return OK if r['aprovadas']` faz este teste cair.
+
+    Era o defeito mais caro da peca, e o mais parecido com o que o projeto
+    inteiro existe para impedir: o codigo de saida dizia limpo enquanto o
+    arquivo ia para `_reprovados/`. Quem le o codigo de saida — CI, script,
+    outro agente — lia zero e seguia.
+    """
+    candidatas = [{"molde": "boa", "lente": "x", "texto": BOA},
+                  {"molde": "ruim", "lente": "y", "texto": ILEGIVEL}]
+
+    # 🔴 O CENARIO PRECISA SER MISTO, OU O TESTE PASSA PELO MOTIVO ERRADO.
+    # Na primeira rodada ele ficou verde porque NENHUMA candidata era
+    # aprovada — e ai `OK if aprovadas else ACUSOU` devolvia 1 sozinho, sem
+    # que o defeito tivesse sido consertado. Teste que passa por falta de
+    # aprovada nao mede codigo de saida: mede outra coisa.
+    r = criar.avaliar_candidatas(candidatas, "pagina-de-vendas",
+                                 {"tipo_de_produto": "kit digital",
+                                  "tem_oferta": True, "tem_prova": True})
+    assert r["aprovadas"], "o cenario nao e misto: nenhuma candidata aprovada"
+    assert r["reprovadas"], "o cenario nao e misto: nenhuma candidata reprovada"
+
+    entrada = _entrada(tmp_path, candidatas)
+    cod = criar.main([str(entrada), "--peca", "pagina-de-vendas",
+                      "--saida", str(tmp_path / "saida")])
+    assert cod == ACUSOU, (
+        "havia aprovada E reprovada, e o codigo de saida foi %s" % cod)
+
+
+def test_criar_poe_a_aprovada_FORA_da_pasta_de_reprovados(tmp_path):
+    """A boa nao pode ficar escondida junto com a ruim.
+
+    Antes do conserto havia UM arquivo so para as duas listas, e o destino
+    dele era decidido por "houve alguma reprovada?". Resultado: duas
+    candidatas aprovadas iam parar em `_reprovados/`, que e' a pasta que a
+    pessoa nao abre.
+    """
+    entrada = _entrada(tmp_path, [
+        {"molde": "boa", "lente": "x", "texto": BOA},
+        {"molde": "ruim", "lente": "y", "texto": ILEGIVEL},
+    ])
+    saida = tmp_path / "saida"
+    criar.main([str(entrada), "--peca", "pagina-de-vendas",
+                "--saida", str(saida)])
+    aprovada = os.path.join(str(saida), "copy-nova.txt")
+    reprovada = os.path.join(str(saida), "_reprovados",
+                             "copy-nova-reprovadas.txt")
+    assert os.path.exists(aprovada), "a aprovada nao chegou na pasta que se abre"
+    assert os.path.exists(reprovada), "a reprovada nao foi separada"
+    assert BOA[:40] in open(aprovada, encoding="utf-8").read()
+    assert ILEGIVEL[:40] not in open(aprovada, encoding="utf-8").read(), (
+        "copy reprovada vazou para o arquivo das aprovadas")
+
+
+def test_criar_sem_nenhuma_aprovada_tambem_acusa(tmp_path):
+    entrada = _entrada(tmp_path, [
+        {"molde": "ruim", "lente": "y", "texto": ILEGIVEL}])
+    cod = criar.main([str(entrada), "--peca", "pagina-de-vendas"])
+    assert cod == ACUSOU
+
+
+def test_criar_veta_a_propria_copy_ilegivel():
+    """Regua que vale so para os outros nao e' regua, e' opiniao (D-05)."""
+    achados, cod = criar.medir_candidata(ILEGIVEL, "pagina-de-vendas")
+    assert cod == ACUSOU
+    assert any(a.gate == "universal:ilegivel" and a.veredito == "reprova"
+               for a in achados), [a.gate for a in achados]
+
+
+def test_criar_com_peca_desconhecida_sai_2_e_nao_0():
+    achados, cod = criar.medir_candidata(BOA, "peca-que-nao-existe")
+    assert cod == NAO_USAR
+    assert achados == []
+
+
+def test_criar_declara_inaplicabilidade_em_vez_de_forcar_a_lente():
+    """D-06: a mente DECLARA quando a propria regua nao serve."""
+    r = avaliar_sem_prova = criar.avaliar_candidatas(
+        [{"molde": "boa", "lente": "x", "texto": BOA}], "pagina-de-vendas",
+        {"tipo_de_produto": "kit digital", "tem_oferta": True,
+         "tem_prova": False})
+    assert r["inaplicaveis"], "nenhuma lente se declarou fora sem prova"
+    assert avaliar_sem_prova is r
+
+
+def test_a_varredura_le_pagina_HTML_e_nao_so_a_familia_do_javascript(tmp_path):
+    """MUTACAO: tirar `.html` de `_arquivos` derruba isto.
+
+    A lista de extensoes era so `.tsx/.jsx/.ts/.js`. Medido sobre uma pagina de
+    vendas real: `esteira.projeto` respondia "nenhum arquivo de pagina" e saia
+    3; a MESMA pagina, com os MESMOS bytes, renomeada para `.jsx`, devolvia 1
+    arquivo e 5 recursos de terceiro. Site estatico e' o caso comum de quem
+    clona isto para auditar uma landing page.
+    """
+    pagina = tmp_path / "index.html"
+    pagina.write_text(
+        '<html><body><h1>Oi</h1>'
+        '<script src="https://cdn.exemplo.com/x.js"></script>'
+        '<a href="/obrigado">ir</a></body></html>', encoding="utf-8")
+
+    achados = list(varredura._arquivos(str(tmp_path)))
+    assert achados, "a varredura nao enxergou a pagina `.html`"
+
+    r = projeto.varrer(str(tmp_path))
+    assert r["arquivos"] == 1, r["arquivos"]
+    assert r["cdn"], "o recurso de terceiro na pagina HTML passou batido"
+
+
+def test_a_rota_do_site_estatico_vem_do_disco_e_evita_o_alarme_falso(tmp_path):
+    """MUTACAO: tirar o bloco de rotas estaticas de `rotas()` derruba isto.
+
+    Aceitar `.html` sem isto criaria o alarme falso que a propria `rotas()`
+    documenta: com o mapa VAZIO, `quebrados()` devolve TODO link interno como
+    quebrado, e o gate acusaria o site inteiro. Um detector que acusa tudo
+    ensina a pessoa a ignorar a linha onde mora o achado de verdade.
+    """
+    (tmp_path / "index.html").write_text(
+        '<a href="/obrigado">ok</a><a href="/nao-existe">quebrado</a>',
+        encoding="utf-8")
+    (tmp_path / "obrigado.html").write_text("<p>valeu</p>", encoding="utf-8")
+
+    mapa = varredura.rotas(str(tmp_path))
+    assert "/" in mapa, mapa
+    assert "/obrigado" in mapa, mapa
+
+    r = projeto.varrer(str(tmp_path))
+    assert r["quebrados"] == ["/nao-existe"], (
+        "o link que resolve foi acusado junto: %s" % r["quebrados"])
+
+
+def test_a_porta_nao_manda_o_criar_ler_uma_PAGINA():
+    """MUTACAO: voltar a propor `esteira.criar <pagina>` derruba isto.
+
+    `esteira.criar` le um JSON de candidatas, nunca uma pagina. A porta
+    propunha o caminho da pagina no lugar do arquivo de candidatas, e o
+    comando saia 3 toda vez — medido num clone limpo, rodando o comando
+    literal que ela imprimiu.
+
+    A porta e' a primeira coisa que um agente de fora le. Comando proposto que
+    nao roda e' pior que nenhum comando: gasta a confianca antes do primeiro
+    resultado.
+    """
+    from esteira import porta
+    p = porta.planejar("escreve a manchete nova da minha pagina de vendas em ./lp")
+    assert p["acao"] == "criar", p["acao"]
+    assert p["comandos"], "sem roteiro para um pedido completo"
+
+    criar_ = [c for c in p["comandos"] if "esteira.criar" in c]
+    assert criar_, "o pedido era criar e o roteiro nao chega no `esteira.criar`"
+    assert "./lp" not in criar_[0], (
+        "a porta mandou o `criar` ler a pagina: %s" % criar_[0])
+    assert ".json" in criar_[0], criar_[0]
+
+    # e o roteiro de criacao passa pela auditoria ANTES, porque quem escreve
+    # a manchete nova precisa dos fatos da peca (D-05)
+    assert any("esteira.gate" in c for c in p["comandos"])
+    assert any("esteira.leitor" in c for c in p["comandos"])
+
+
+def test_a_porta_propoe_e_nao_executa_e_pede_o_que_falta():
+    from esteira import porta
+    incompleto = porta.planejar("audita a minha pagina de vendas")
+    assert incompleto["falta"] and not incompleto["comandos"]
+    assert incompleto["executa"] is False
+
+    completo = porta.planejar("audita a copy da pagina de vendas em ./lp")
+    assert not completo["falta"]
+    assert completo["executa"] is False
+    assert all(c.startswith(("python", "#")) for c in completo["comandos"])
+
+
+def test_a_porta_da_o_MESMO_plano_para_a_mesma_frase():
+    """Zero LLM aqui, e o contrato e' esse. (D-04)"""
+    from esteira import porta
+    frase = "reescreve a manchete da pagina de captura em ./x"
+    planos = [porta.planejar(frase)["comandos"] for _ in range(5)]
+    assert all(p == planos[0] for p in planos), planos
+
+
+# ---------------------------------------------------------------------------
+# O CAMINHO INTEIRO, RODADO COMO COMANDO
+#
+# Teste de funcao importa o modulo. A pessoa que clonou nao importa modulo:
+# ela digita o comando. Medido num clone limpo com esta suite INTEIRA verde:
+# o `criar` saia 0 com candidata reprovada no arquivo, e seis cabecalhos
+# declaravam chamador inexistente. Nada disso aparece importando a funcao.
+# ---------------------------------------------------------------------------
+
+RAIZ = os.path.dirname(os.path.abspath(__file__))
+
+PAGINA_DE_EXEMPLO = """<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Kit de exemplo</title></head>
+<body>
+  <h1>O kit que organiza o seu servico</h1>
+  <p>Voce faz o servico bem feito e perde a obra no preco.</p>
+  <p>Sao 4 ferramentas prontas. Use ainda hoje. O preco e R$37.</p>
+  <p>Clique no botao e garanta o seu acesso agora.</p>
+  <a href="/obrigado">Quero o kit</a>
+</body></html>
+"""
+
+
+def _material(*candidatos):
+    """O mesmo material tem nome diferente na casa e no repositorio montado.
+
+    Na casa ele e' `publicar/exemplo-candidatas.json`; montado, vira
+    `exemplos/candidatas.json`. O teste precisa rodar nos DOIS, porque o
+    defeito que ele guarda so apareceu no montado.
+    """
+    for c in candidatos:
+        inteiro = os.path.join(RAIZ, c)
+        if os.path.exists(inteiro):
+            return inteiro
+    return None
+
+
+def _comando(argumentos):
+    """Roda `python -m ...` de verdade e devolve (codigo, saida)."""
+    proc = subprocess.run([sys.executable, "-B", "-m"] + argumentos,
+                          cwd=RAIZ, capture_output=True, text=True,
+                          encoding="utf-8", errors="replace")
+    return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+
+
+def test_as_seis_CLIs_respondem_como_COMANDO_e_nao_so_como_funcao():
+    """MUTACAO: tirar o import de uma CLI derruba isto, e nao a suite.
+
+    Ja aconteceu: um conserto de encoding aplicado as seis de uma vez deixou
+    UMA sem o import, e a suite seguiu verde. O teste que existia chamava
+    `modulo.main([])` DENTRO do processo, o que nao exercita `python -m` nem
+    o empacotamento.
+    """
+    for nome in ("porta", "projeto", "gate", "leitor", "criar", "aferir"):
+        cod, saida = _comando(["esteira.%s" % nome])
+        assert "Traceback (most recent call last)" not in saida, (nome, saida)
+        assert cod == NAO_USAR, (nome, cod)
+        assert saida.strip(), "%s nao imprimiu nada; comando mudo nao responde" % nome
+
+
+def test_o_caminho_inteiro_roda_como_COMANDO_sem_excecao(tmp_path):
+    """porta -> projeto -> gate -> leitor -> criar, na ordem do AGENTS.md.
+
+    O `projeto` sobre uma pasta com `.html` sai 0 desde que a varredura passou
+    a ler HTML. Este numero ficou cravado aqui de proposito: quando ele mudar,
+    alguem precisa olhar em vez de o silencio virar verde. Ele JA mudou uma
+    vez — era 3, e 3 queria dizer "nao enxerguei a pagina".
+    """
+    pagina = tmp_path / "index.html"
+    pagina.write_text(PAGINA_DE_EXEMPLO, encoding="utf-8")
+    contrato = (OK, ACUSOU, NAO_USAR, NAO_MEDIR)
+
+    passos = [
+        (["esteira.porta", "audita a copy da pagina de vendas em ./x"], OK),
+        (["esteira.projeto", str(tmp_path)], OK),
+        (["esteira.gate", str(pagina), "--peca", "pagina-de-vendas"], None),
+        (["esteira.leitor", str(pagina)], None),
+    ]
+    for argumentos, esperado in passos:
+        cod, saida = _comando(argumentos)
+        rotulo = " ".join(argumentos)
+        assert "Traceback (most recent call last)" not in saida, \
+            "excecao nao tratada em `%s`:\n%s" % (rotulo, saida[-500:])
+        assert cod in contrato, "`%s` saiu %s, fora do contrato" % (rotulo, cod)
+        if esperado is not None:
+            assert cod == esperado, "`%s` saiu %s, esperado %s" % (
+                rotulo, cod, esperado)
+
+
+def test_o_criar_como_COMANDO_acusa_e_separa_os_dois_arquivos(tmp_path):
+    """O exemplo que sobe no repositorio traz UMA candidata ilegivel de
+    proposito. Se este comando sair 0, a esteira voltou a aprovar copy que
+    ela mesma reprova — que e' o defeito que ela existe para impedir."""
+    entrada = _material("exemplos/candidatas.json",
+                        "publicar/exemplo-candidatas.json")
+    assert entrada, "o exemplo de candidatas sumiu do repositorio"
+    saida = tmp_path / "saida"
+    cod, texto = _comando(["esteira.criar", entrada, "--peca",
+                           "pagina-de-vendas", "--saida", str(saida)])
+    assert "Traceback (most recent call last)" not in texto, texto[-500:]
+    assert cod == ACUSOU, (
+        "havia candidata ilegivel no exemplo e o comando saiu %s" % cod)
+    assert os.path.exists(os.path.join(str(saida), "copy-nova.txt"))
+    assert os.path.exists(os.path.join(str(saida), "_reprovados",
+                                       "copy-nova-reprovadas.txt"))
+
+
+def test_o_aferidor_como_COMANDO_responde_dentro_do_contrato():
+    corpus = _material("exemplos/controle-ruim", "casa/controle-ruim")
+    assert corpus, "o corpus de controle sumiu do repositorio"
+    cod, texto = _comando(["esteira.aferir", corpus, "--peca",
+                           "pagina-de-vendas"])
+    assert "Traceback (most recent call last)" not in texto, texto[-500:]
+    assert cod in (OK, ACUSOU, NAO_MEDIR), cod
+
+
+def test_todo_cabecalho_CHAMADOR_aponta_para_arquivo_que_existe():
+    """MUTACAO: apontar um `CHAMADOR:` para arquivo inexistente derruba isto.
+
+    Nao e' teste de um defeito: e' o gate do defeito. Um cabecalho que declara
+    chamador falso e' PIOR que um no orfao calado, porque ele diz que a peca
+    esta coberta. Medido num clone limpo do repositorio publicado: 9
+    declaracoes falsas em 6 arquivos, e a que estava mapeada era uma so.
+
+    A fronteira do bloco e' a primeira linha em branco depois de `CHAMADOR:`,
+    porque o que vem depois e' outra secao do cabecalho e nao promete chamador.
+    """
+    raiz = os.path.dirname(os.path.abspath(__file__))
+    ref = re.compile(r"`([\w./-]+\.(?:py|md|json|ya?ml))`")
+    faltando = []
+    for base, dirs, arqs in os.walk(raiz):
+        dirs[:] = [d for d in dirs
+                   if d not in ("__pycache__", ".git", ".pytest_cache",
+                                "publicado", "node_modules", "casa")]
+        for nome in sorted(arqs):
+            if not nome.endswith(".py"):
+                continue
+            caminho = os.path.join(base, nome)
+            try:
+                texto = open(caminho, encoding="utf-8").read()
+            except (OSError, UnicodeDecodeError):
+                continue
+            achado = re.search(r"^CHAMADOR:(.*?)(?=\n\s*\n)", texto,
+                               re.S | re.M)
+            if not achado:
+                continue
+            rel = os.path.relpath(caminho, raiz).replace("\\", "/")
+            for citado in ref.findall(achado.group(1)):
+                if not os.path.exists(os.path.join(raiz, citado)):
+                    faltando.append("%s declara %s" % (rel, citado))
+    assert not faltando, "cabecalho com chamador que nao exist<caminho local>  " + \
+        "\n  ".join(faltando)
 
 
 if __name__ == "__main__":

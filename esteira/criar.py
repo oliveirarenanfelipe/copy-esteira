@@ -3,8 +3,8 @@
 
     python -m esteira.criar <candidatas.json> --peca <tipo> [--saida <pasta>]
 
-CHAMADOR: a CLI acima, pelo `main()` no fim deste arquivo; `testar_criar.py`;
-e `docs/F4-CRIACAO.md`, que cita o comando e cola a saida.
+CHAMADOR: a CLI acima, pelo `main()` no fim deste arquivo; `testar_gates.py`;
+e a documentacao da casa, que cita o comando e cola a saida.
 Esta peca e' o chamador de `esteira/mentes.json`.
 
 JA EXISTIA? Nao. Nada na casa aplica gate a copy que ela mesma escreve. O
@@ -111,10 +111,24 @@ def medir_candidata(texto, peca, reguas=None):
     if ficha is None:
         return [], NAO_USAR
     alvos = ficha.get("alvos", {})
-    folgas = reguas.get("_folgas", {})
+
+    # 🔴 A FOLGA DA PROPRIA PECA VEM PRIMEIRO, E O REGIME VAI JUNTO.
+    # As duas linhas abaixo eram `folgas = reguas.get("_folgas", {})` e nada
+    # de regime. Efeito medido na `pagina-de-vendas`: o piso de `seg` era 3,6
+    # pelo `gate.py` e 31,5 aqui, e a peca e' regime `direcao`, que por
+    # contrato NAO reprova — mas aqui caia no default `limiar` e reprovava.
+    #
+    # Ou seja: a esteira julgava a copy que ELA escreve por uma regua mais
+    # dura que a aplicada a copy dos outros, enquanto o cabecalho deste
+    # arquivo promete "os MESMOS gates da Camada 1". A promessa era falsa, e
+    # o defeito e' o mesmo que o comentario do `gate.py` ja descrevia: folga
+    # herdada em vez de folga medida.
+    folgas = ficha.get("folgas") or reguas.get("_folgas", {})
+    regime = ficha.get("regime", "limiar")
+
     achados = [gate_legibilidade(texto, alvos.get("ilf"),
-                                 folgas.get("ilf") or {})]
-    achados += gate_forma(texto, alvos, folgas)
+                                 folgas.get("ilf") or {}, regime)]
+    achados += gate_forma(texto, alvos, folgas, regime)
 
     leg = medidas.legibilidade(texto)
     if leg is not None:
@@ -148,6 +162,39 @@ def avaliar_candidatas(candidatas, peca, contexto, reguas=None, mentes=None):
         "grupos": sorted(grupos_cobertos(aplicaveis)),
         "lentes": [m["id"] for m in aplicaveis],
     }
+
+
+def relatorio_das_aprovadas(r, peca):
+    """So o que passou. E' este arquivo que a pessoa abre e usa."""
+    L = ["CAMADA 5 — copy APROVADA, peca: %s" % peca, ""]
+    L.append("  lentes aplicadas: %d  |  grupos: %s"
+             % (len(r["lentes"]), ", ".join(r["grupos"])))
+    L.append("")
+    L.append("  CANDIDATAS APROVADAS: %d" % len(r["aprovadas"]))
+    for c in r["aprovadas"]:
+        L.append("    [%s] %s" % (c.get("molde", "?"), c["texto"]))
+        for a in c["achados"]:
+            if a.veredito != "nao-mediu":
+                L.append("        " + a.linha().strip())
+    L.append("")
+    L.append("  %d candidata(s) reprovada(s) foram separadas em "
+             "`_reprovados/`." % len(r["reprovadas"]))
+    return "\n".join(L)
+
+
+def relatorio_das_reprovadas(r, peca):
+    """So o que o gate vetou, e por qual numero."""
+    L = ["CAMADA 5 — copy REPROVADA, peca: %s" % peca, ""]
+    L.append("  Estas NAO vao para a pasta de saida. Nenhuma delas deve ser"
+             " publicada.")
+    L.append("")
+    L.append("  CANDIDATAS REPROVADAS: %d" % len(r["reprovadas"]))
+    for c in r["reprovadas"]:
+        L.append("    [%s] %s" % (c.get("molde", "?"), c["texto"]))
+        for a in c["achados"]:
+            if a.veredito == "reprova":
+                L.append("        " + a.linha().strip())
+    return "\n".join(L)
 
 
 def relatorio(r, peca):
@@ -212,11 +259,29 @@ def main(argv=None):
         i = argv.index("--saida")
         if i + 1 < len(argv):
             saida = argv[i + 1]
+    # 🔴 DOIS ARQUIVOS, NUNCA UM. A versao anterior escrevia UM relatorio com
+    # as duas listas dentro e decidia o destino por "houve alguma reprovada?".
+    # Efeito medido: duas candidatas APROVADAS iam parar em `_reprovados/`,
+    # que e' a pasta que a pessoa nao abre — escondidas junto com as ruins.
     if saida:
-        onde = escrever_saida(saida, "copy-nova.txt", texto,
-                              bool(r["reprovadas"]))
-        print("\n  saida: %s" % onde)
-    return OK if r["aprovadas"] else ACUSOU
+        if r["aprovadas"]:
+            onde = escrever_saida(saida, "copy-nova.txt",
+                                  relatorio_das_aprovadas(r, peca), False)
+            print("\n  aprovadas: %s" % onde)
+        if r["reprovadas"]:
+            onde = escrever_saida(saida, "copy-nova-reprovadas.txt",
+                                  relatorio_das_reprovadas(r, peca), True)
+            print("  reprovadas: %s" % onde)
+
+    # 🔴 O CODIGO DE SAIDA REFLETE A REPROVACAO, e nao "sobrou alguma boa?".
+    # Antes era `OK if r["aprovadas"] else ACUSOU`: com 2 aprovadas e 2
+    # reprovadas ele saia 0 enquanto o arquivo ia para `_reprovados/`. Os dois
+    # sinais se contradiziam, e quem le codigo de saida — CI, script, outro
+    # agente — lia zero e seguia. E' a Camada 5 fazendo, de forma mais sutil,
+    # o que este projeto existe para impedir: o `return 0` do auditor anterior.
+    if r["reprovadas"]:
+        return ACUSOU
+    return OK if r["aprovadas"] else NAO_MEDIR
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 
     from esteira.medidas import legibilidade, forma, contraste, compor
 
-CHAMADOR: `esteira/gate.py` (veredito com codigo de saida) e `testar_medidas.py`
+CHAMADOR: `esteira/gate.py` (veredito com codigo de saida) e `testar_gates.py`
 (suite com mutacao). Nasce com os dois, no mesmo commit.
 
 Tudo aqui e' aritmetica sobre texto e cor. Mesma entrada, mesma saida, sempre.
