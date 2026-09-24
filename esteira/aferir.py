@@ -398,6 +398,30 @@ def registrar(peca, regua, testes, caminho=REGUAS):
     ficha = reg.get("pecas", {}).get(peca)
     if ficha is None:
         return False, "tipo de peca desconhecido: %s" % peca
+
+    # 🔴 REGUA NOVA NAO REBAIXA A QUE JA ESTA NO REGISTRO.
+    # Achado por um agente cego que rodou `--registrar` para ver o efeito: com
+    # 12 pecas ele quase substituiu a regua de `anuncio`, que tinha n=35 e
+    # regime `limiar` — poder de veto, discriminacao medida —, por uma de
+    # regime `direcao`, que nao veta nada.
+    #
+    # O cabecalho desta funcao ja dizia "nao ha opcao de forcar, porque a
+    # opcao de forcar e' como o gate morre". Faltava perceber que APAGAR a
+    # regua forte com uma fraca e' a mesma morte, so que pela porta de tras:
+    # o registro fica com cara de atualizado e perde o veto.
+    #
+    # Corpus MAIOR e' o unico caminho para trocar. Menor nao passa.
+    antes_regime = ficha.get("regime")
+    antes_n = ficha.get("n") or 0
+    agora_n = regua.get("n") or 0
+    if antes_regime == "limiar" and regua.get("regime") != "limiar":
+        return False, ("a regua no registro e' `limiar` (n=%s) e esta e'"
+                       " `%s` (n=%s). Regua nova nao rebaixa a antiga: junte"
+                       " mais pecas." % (antes_n, regua.get("regime"), agora_n))
+    if agora_n < antes_n:
+        return False, ("o registro tem n=%s e esta traz n=%s. Regua nova nao"
+                       " encolhe o corpus da antiga." % (antes_n, agora_n))
+
     ficha["alvos"] = regua["alvos"]
     ficha["folgas"] = regua["folgas"]
     ficha["n"] = regua["n"]

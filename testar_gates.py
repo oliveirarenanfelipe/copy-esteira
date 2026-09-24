@@ -1743,6 +1743,86 @@ def test_link_de_saida_nao_e_recurso_carregado():
         "folha de estilo de terceiro E recurso carregado, e tem de acusar"
 
 
+def test_peca_de_TEXTO_nao_e_cobrada_por_pixel_que_ela_nao_pode_ter(tmp_path):
+    """MUTACAO: tirar o `and e_pagina` do `avaliar()` derruba isto.
+
+    🔴 Gate que reprova 100% de um tipo de peca por um motivo impossivel e' tao
+    inutil quanto gate que nunca reprova.
+
+    Medido por um agente cego sobre 12 roteiros de anuncio reais: as 12
+    REPROVAVAM, com os 7 criterios de forma e legibilidade PASSANDO. Quem
+    reprovava eram `medicao:pixel`, `medicao:ga4` e `medicao:clarity` — e um
+    roteiro em `.txt` nunca vai ter pixel embutido, porque nao e' pagina.
+
+    E' o `return 0` do auditor anterior visto pelo espelho: a pessoa aprende a
+    ignorar o vermelho, porque o vermelho nao depende do que ela escreveu.
+    """
+    roteiro = tmp_path / "a001.txt"
+    roteiro.write_text(
+        "Voce faz o servico bem feito. Mesmo assim perde a obra no preco.\n"
+        "O problema nao e a sua tecnica. Clique e veja como resolver.\n",
+        encoding="utf-8")
+
+    achados, _cod = avaliar(str(roteiro), "anuncio")
+    gates = {a.gate for a in achados}
+    for proibido in ("medicao:pixel", "medicao:ga4", "medicao:clarity",
+                     "cdn-de-terceiro", "caminhos"):
+        assert proibido not in gates, (
+            "peca de texto foi cobrada por `%s`, que so existe em pagina"
+            % proibido)
+    assert any(g.startswith("forma:") for g in gates), gates
+
+    # e a pagina CONTINUA sendo cobrada, que e' a outra metade
+    pagina = tmp_path / "index.html"
+    pagina.write_text(
+        "<html><body><h1>O kit que organiza o seu servico.</h1>"
+        "<p>Voce faz o servico bem feito e perde a obra no preco.</p>"
+        "<p>Sao 4 ferramentas prontas. Use hoje. O preco e R$37.</p>"
+        "</body></html>", encoding="utf-8")
+    de_pagina = {a.gate for a in avaliar(str(pagina), "pagina-de-vendas")[0]}
+    assert "medicao:pixel" in de_pagina, (
+        "a pagina deixou de ser cobrada pela medicao, e ela TEM de ser")
+
+
+def test_regua_nova_NAO_rebaixa_a_que_ja_esta_no_registro(tmp_path):
+    """MUTACAO: tirar a checagem de regime/n do `registrar()` derruba isto.
+
+    Achado por um agente cego que rodou `--registrar` so para ver o efeito:
+    com 12 pecas ele quase substituiu a regua de `anuncio`, que tem n=35 e
+    regime `limiar`, por uma `direcao`, que nao veta nada.
+
+    O cabecalho do `registrar()` ja dizia "nao ha opcao de forcar, porque a
+    opcao de forcar e' como o gate morre". Faltava ver que APAGAR a regua forte
+    com uma fraca e' a mesma morte pela porta de tras: o registro fica com cara
+    de atualizado e perde o veto.
+    """
+    alvo = tmp_path / "reguas.json"
+    alvo.write_text(json.dumps({"pecas": {"anuncio": {
+        "alvos": {"ilf": 80.0}, "folgas": {}, "n": 35, "regime": "limiar",
+        "n_por_metrica": {}, "alvos_sem_regua": {}, "fonte": "corpus antigo",
+    }}}, ensure_ascii=False), encoding="utf-8")
+
+    fraca = {"alvos": {"ilf": 70.0}, "folgas": {}, "n": 12,
+             "regime": "direcao", "n_por_metrica": {}, "alvos_sem_regua": {},
+             "fonte": "corpus novo"}
+    limpos = [{"veredito": "passa"}]
+
+    ok, motivo = aferir.registrar("anuncio", fraca, limpos, str(alvo))
+    assert not ok, "a regua fraca entrou por cima da forte"
+    assert "limiar" in motivo and "35" in motivo, motivo
+
+    # o registro nao foi tocado
+    depois = json.loads(alvo.read_text(encoding="utf-8"))
+    assert depois["pecas"]["anuncio"]["n"] == 35
+    assert depois["pecas"]["anuncio"]["regime"] == "limiar"
+
+    # e corpus MAIOR passa, que e' o caminho legitimo de troca
+    forte = dict(fraca, n=48, regime="limiar", alvos={"ilf": 78.0})
+    ok2, _ = aferir.registrar("anuncio", forte, limpos, str(alvo))
+    assert ok2, "corpus maior e regime igual deveria entrar"
+    assert json.loads(alvo.read_text(encoding="utf-8"))["pecas"]["anuncio"]["n"] == 48
+
+
 def test_a_PASTA_e_o_ARQUIVO_dao_o_MESMO_veredito(tmp_path):
     """MUTACAO: voltar `bruta` a so ler arquivo derruba isto.
 

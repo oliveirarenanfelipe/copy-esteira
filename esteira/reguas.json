@@ -192,7 +192,8 @@
           "veredito": "nao-mediu",
           "nota": "so um grupo no corpus: nao ha com quem cruzar"
         }
-      ]
+      ],
+      "midia": "pagina"
     },
     "pagina-de-captura": {
       "rotulo": "pagina de captura",
@@ -286,7 +287,8 @@
           "nota": "so um grupo no corpus: nao ha com quem cruzar"
         }
       ],
-      "alvos_sem_regua": {}
+      "alvos_sem_regua": {},
+      "midia": "pagina"
     },
     "pagina-de-obrigado": {
       "rotulo": "pagina de obrigado",
@@ -380,7 +382,8 @@
           "nota": "so um grupo no corpus: nao ha com quem cruzar"
         }
       ],
-      "alvos_sem_regua": {}
+      "alvos_sem_regua": {},
+      "midia": "pagina"
     },
     "pagina-institucional": {
       "rotulo": "pagina institucional ou home de produto",
@@ -477,7 +480,8 @@
           "veredito": "nao-mediu",
           "nota": "so um grupo no corpus: nao ha com quem cruzar"
         }
-      ]
+      ],
+      "midia": "pagina"
     },
     "email": {
       "rotulo": "corpo de e-mail",
@@ -580,7 +584,8 @@
       ],
       "alvos_sem_regua": {
         "vicio": "sem regua: 3 de 44 peca(s) alcancaram esta metrica, e o regime `limiar` exige 15. Ausencia declarada, nao alvo inventado."
-      }
+      },
+      "midia": "texto"
     },
     "anuncio": {
       "rotulo": "anuncio",
@@ -679,7 +684,8 @@
       ],
       "alvos_sem_regua": {
         "vicio": "sem regua: 13 de 35 peca(s) alcancaram esta metrica, e o regime `limiar` exige 15. Ausencia declarada, nao alvo inventado."
-      }
+      },
+      "midia": "texto"
     },
     "mensagem": {
       "rotulo": "mensagem de grupo ou mensageiro",
@@ -778,7 +784,8 @@
       ],
       "alvos_sem_regua": {
         "vicio": "sem regua: 0 de 59 peca(s) alcancaram esta metrica, e o regime `limiar` exige 15. Ausencia declarada, nao alvo inventado."
-      }
+      },
+      "midia": "texto"
     }
   },
   "universal": {

@@ -340,7 +340,25 @@ def avaliar(caminho, peca, reguas=None, raiz=None):
     achados = [gate_legibilidade(texto, alvos.get("ilf"),
                                  folgas.get("ilf") or {}, regime)]
     achados += gate_forma(texto, alvos, folgas, regime)
-    if bruta:
+    # 🔴 OS TRES GATES ABAIXO SO VALEM PARA PECA QUE E' PAGINA.
+    # Medicao instalada, recurso de terceiro e link interno sao propriedades de
+    # HTML. Um roteiro de anuncio, um e-mail ou uma mensagem de WhatsApp nunca
+    # vao ter pixel embutido no texto, porque nao sao pagina.
+    #
+    # Medido por um agente cego, sobre 12 roteiros de anuncio reais: as 12
+    # REPROVAVAM, com os 7 criterios de forma e legibilidade PASSANDO. Quem
+    # reprovava eram sempre os mesmos tres, `medicao:pixel`, `medicao:ga4` e
+    # `medicao:clarity`, por uma falta que a peca nao tem como suprir.
+    #
+    # Gate que reprova 100% de um tipo de peca por um motivo impossivel e' tao
+    # inutil quanto gate que nunca reprova — e' o `return 0` do auditor
+    # anterior visto pelo espelho. A pessoa aprende a ignorar o vermelho, que
+    # e' exatamente o que este repositorio existe para impedir.
+    #
+    # A `midia` mora no `reguas.json`, em DADOS, e nao numa lista de nomes
+    # dentro do codigo (R7). Peca nova declara a sua e o gate obedece.
+    e_pagina = ficha.get("midia", "pagina") == "pagina"
+    if bruta and e_pagina:
         achados += gate_medicao(bruta, univ.get("medicao_exigida", []))
         achados += gate_cdn_de_terceiro(
             bruta, univ.get("cdn_de_terceiro_permitido", False),
