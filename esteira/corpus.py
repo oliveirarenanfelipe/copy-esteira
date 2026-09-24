@@ -305,15 +305,27 @@ def colher_pasta(raiz, limite=400, so_pagina=True):
     """
     if not os.path.isdir(raiz):
         return [], 2
-    aceitos = EXT_DE_PAGINA if so_pagina else set(LEITORES)
     todos = []
+    for caminho in arquivos_de_pagina(raiz, so_pagina):
+        trechos, _ = colher(caminho)
+        todos.extend(trechos)
+        if len(todos) >= limite:
+            return todos[:limite], 0
+    return (todos, 0) if todos else ([], 3)
+
+
+def arquivos_de_pagina(raiz, so_pagina=True):
+    """Os arquivos que `colher_pasta` considera pagina, na mesma ordem.
+
+    Existe separado porque o `gate` precisa do texto BRUTO dos mesmos
+    arquivos, e nao so dos trechos colhidos. Enquanto as duas listas eram
+    montadas em lugares diferentes, o gate sobre pasta lia bruta vazia e
+    pulava tres medicoes em silencio.
+    """
+    aceitos = EXT_DE_PAGINA if so_pagina else set(LEITORES)
     for base, dirs, arquivos in os.walk(raiz):
         dirs[:] = [d for d in dirs
                    if d not in ("node_modules", ".git", "dist", "build", ".next")]
         for a in sorted(arquivos):
             if os.path.splitext(a)[1].lower() in aceitos:
-                trechos, _ = colher(os.path.join(base, a))
-                todos.extend(trechos)
-                if len(todos) >= limite:
-                    return todos[:limite], 0
-    return (todos, 0) if todos else ([], 3)
+                yield os.path.join(base, a)

@@ -1463,6 +1463,108 @@ def test_o_aferidor_como_COMANDO_responde_dentro_do_contrato():
     assert cod in (OK, ACUSOU, NAO_MEDIR), cod
 
 
+def test_o_que_a_regua_EXIGE_ela_nao_pode_reprovar():
+    """MUTACAO: parar de passar `exigidas` ao detector derruba isto.
+
+    Medido na mesma pagina, na mesma rodada:
+
+        PASSA     medicao:pixel     presente
+        REPROVA   cdn-de-terceiro   1o: https://connect.facebook.net/...
+
+    As duas linhas falavam do MESMO script. Nenhuma pagina instrumentada
+    conseguia passar nos dois, e a pessoa nao tinha o que consertar.
+    """
+    com_pixel = ('<script src="https://connect.facebook.net/en_US/fbevents.js">'
+                 '</script>')
+    acusa = gate_cdn_de_terceiro(com_pixel, False)[0]
+    assert acusa.veredito == "reprova", "sem exigencia declarada, ele acusa"
+
+    isenta = gate_cdn_de_terceiro(com_pixel, False, ["pixel"])[0]
+    assert isenta.veredito == "passa", (
+        "a regua exige o pixel e o detector reprova o script dele")
+
+    # e a isencao vale SO para o que a regua exige
+    outro = '<script src="https://cdn.terceiro.com/carrossel.js"></script>'
+    assert gate_cdn_de_terceiro(outro, False, ["pixel"])[0].veredito == "reprova"
+
+
+def test_link_de_saida_nao_e_recurso_carregado():
+    """MUTACAO: tirar o filtro de `<a href>` derruba isto.
+
+    `<a href>` e' para onde a pessoa vai. O detector contava o link do
+    checkout como recurso em tempo de execucao, ou seja acusava a pagina por
+    ter um botao de comprar. `<link href>` continua contando, porque folha de
+    estilo a pagina carrega mesmo.
+    """
+    ancora = '<a href="https://checkout.terceiro.com/abc">Quero</a>'
+    assert gate_cdn_de_terceiro(ancora, False)[0].veredito == "passa", \
+        "o link de saida foi contado como recurso carregado"
+
+    folha = '<link rel="stylesheet" href="https://estilos.terceiro.com/a.css">'
+    assert gate_cdn_de_terceiro(folha, False)[0].veredito == "reprova", \
+        "folha de estilo de terceiro E recurso carregado, e tem de acusar"
+
+
+def test_a_PASTA_e_o_ARQUIVO_dao_o_MESMO_veredito(tmp_path):
+    """MUTACAO: voltar `bruta` a so ler arquivo derruba isto.
+
+    Era o gate mais decorativo dos que apareceram, porque parecia estar
+    rodando. Medido na mesma pagina, com os mesmos bytes:
+
+        gate <pasta>   -> LIMPO (0),   8 medidas
+        gate <arquivo> -> REPROVA (1), 12 medidas, 3 reprovas
+
+    Quatro medidas somem quando o caminho e' pasta: medicao instalada,
+    recurso de terceiro e link interno. E pasta e' justamente o que o roteiro
+    do `AGENTS.md` manda usar, ou seja o caminho documentado era o fraco.
+    """
+    pagina = tmp_path / "index.html"
+    pagina.write_text(
+        '<html><head><script src="https://cdn.terceiro.com/x.js"></script>'
+        '</head><body><h1>O kit que organiza o seu servico.</h1>'
+        '<p>Voce faz o servico bem feito e perde a obra no preco.</p>'
+        '<p>Sao 4 ferramentas prontas. Use hoje. O preco e R$37.</p>'
+        '</body></html>', encoding="utf-8")
+
+    de_arquivo, cod_arquivo = avaliar(str(pagina), "pagina-de-vendas")
+    de_pasta, cod_pasta = avaliar(str(tmp_path), "pagina-de-vendas")
+
+    gates_arquivo = sorted(a.gate for a in de_arquivo)
+    gates_pasta = sorted(a.gate for a in de_pasta)
+    assert gates_pasta == gates_arquivo, (
+        "a pasta mediu menos coisa que o arquiv<caminho local>  so no arquivo: %s"
+        % sorted(set(gates_arquivo) - set(gates_pasta)))
+
+    assert any(a.gate == "cdn-de-terceiro" for a in de_pasta), \
+        "o recurso de terceiro so foi visto apontando para o arquivo"
+    assert cod_pasta == cod_arquivo, (cod_pasta, cod_arquivo)
+
+
+def test_o_roteiro_da_porta_para_a_IA_chega_na_CRIACAO():
+    """MUTACAO: tirar o passo do `criar` do roteiro derruba isto.
+
+    O roteiro completo do `AGENTS.md` ia de `porta` a `leitor` e parava. Um
+    agente que o seguisse entregava a auditoria e escrevia a manchete nova a
+    mao, sem passar por gate nenhum — que e' o unico jeito de a copy escapar
+    da regua neste repositorio.
+
+    E isso contradizia a regra que o proprio projeto escreve na Camada 5:
+    auditoria que nao poe manchete melhor na mesa e' critica, nao trabalho.
+    """
+    porta_da_ia = _material("AGENTS.md", "publicar/AGENTS.md")
+    assert porta_da_ia, "a porta para a IA sumiu do repositorio"
+    texto = open(porta_da_ia, encoding="utf-8").read()
+
+    roteiro = re.search(r"roteiro completo(.*?)```\s*\n", texto, re.S | re.I)
+    assert roteiro, "nao achei o bloco do roteiro completo no AGENTS.md"
+    bloco = roteiro.group(1)
+
+    for passo in ("esteira.porta", "esteira.projeto", "esteira.gate",
+                  "esteira.leitor", "esteira.criar"):
+        assert passo in bloco, (
+            "o roteiro completo nao chega em `%s`" % passo)
+
+
 def test_todo_cabecalho_CHAMADOR_aponta_para_arquivo_que_existe():
     """MUTACAO: apontar um `CHAMADOR:` para arquivo inexistente derruba isto.
 
@@ -1489,7 +1591,12 @@ def test_todo_cabecalho_CHAMADOR_aponta_para_arquivo_que_existe():
                 texto = open(caminho, encoding="utf-8").read()
             except (OSError, UnicodeDecodeError):
                 continue
-            achado = re.search(r"^CHAMADOR:(.*?)(?=\n\s*\n)", texto,
+            # 🔴 `CHAMADORES,` no plural tambem conta. A primeira versao deste
+            # gate exigia `^CHAMADOR:` e por isso nao enxergava `esteira/gate.py`,
+            # que escreve "CHAMADORES, todos no mesmo commit" — e declarava um
+            # `testar_gate.py`, no singular, que nunca existiu. O gate do defeito
+            # tinha o defeito.
+            achado = re.search(r"^CHAMADORE?S?[:,](.*?)(?=\n\s*\n)", texto,
                                re.S | re.M)
             if not achado:
                 continue

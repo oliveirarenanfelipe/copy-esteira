@@ -261,7 +261,8 @@ Leia o campo `regime` de cada tipo antes de confiar no número:
 
 ## Um roteiro completo, do pedido ao veredito
 
-Pedido típico: *"audite a copy desta landing page"*.
+Pedido típico: *"audite a copy desta landing page"*. Se o pedido também for para escrever
+copy nova, o roteiro é o mesmo e continua no passo 5. Não pare antes dele.
 
 ```bash
 # 1. o que a esteira entende do pedido (opcional, e não executa nada)
@@ -276,7 +277,12 @@ python -m esteira.gate ./lp --peca pagina-de-vendas --saida ./saida
 # 4. a compreensão, que os passos 2 e 3 não medem
 python -m esteira.leitor ./lp
 
-# 5. leia os códigos de saída antes de escrever o relatório
+# 5. a copy nova, e ela passa pelos MESMOS gates do passo 3.
+#    Você escreve as candidatas num JSON; quem veta é o código.
+#    O molde está em `exemplos/candidatas.json`.
+python -m esteira.criar ./candidatas.json --peca pagina-de-vendas --saida ./saida
+
+# 6. leia os códigos de saída antes de escrever o relatório
 ```
 
 No relatório, para cada achado: **o valor medido, o limiar que o julgou, e de onde veio o
@@ -285,3 +291,13 @@ apresente na sua.
 
 Se algum passo saiu `3`, diga o que não foi medido. É a diferença entre "auditei e está
 limpo" e "auditei o que deu, e isto aqui ficou de fora".
+
+🔴 **O passo 5 é o que separa trabalho de crítica.** Este roteiro já terminou no passo 4, e
+um agente que o seguia entregava a auditoria e escrevia a manchete nova à mão, sem gate
+nenhum. Auditoria que não põe manchete melhor na mesa é crítica; e manchete escrita sem
+passar pelo gate é exatamente o que este repositório existe para não deixar passar.
+
+🔴 **O `criar` sai `1` quando alguma candidata é vetada, mesmo havendo aprovadas.** Não é
+erro: é o lote tendo copy reprovada dentro. As aprovadas ficam em `saida/copy-nova.txt`, que
+é o arquivo que você usa. As vetadas ficam em `saida/_reprovados/`, e nenhuma delas deve ser
+publicada.

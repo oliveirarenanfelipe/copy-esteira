@@ -6,7 +6,7 @@
 
 CHAMADORES, todos no mesmo commit (regra "nada e' feito sem chamador"):
   · a CLI acima, pelo `main()` no fim deste arquivo;
-  · `testar_gate.py`, a suite com mutacao;
+  · `testar_gates.py`, a suite com mutacao;
   · `.github/workflows/testes.yml`, que roda a suite em toda push.
 E esta peca e' o chamador de `esteira/medidas.py` e `esteira/corpus.py`.
 
@@ -39,7 +39,7 @@ import sys
 
 from esteira import saida_legivel
 from esteira import medidas
-from esteira.corpus import colher, colher_pasta
+from esteira.corpus import arquivos_de_pagina, colher, colher_pasta
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 REGUAS = os.path.join(AQUI, "reguas.json")
@@ -48,7 +48,11 @@ OK, ACUSOU, NAO_USAR, NAO_MEDIR = 0, 1, 2, 3
 
 # as tres marcas de medicao que toda pagina que capta lead ou vende carrega
 MARCAS_DE_MEDICAO = {
-    "pixel": re.compile(r"fbq\(|connect\.facebook\.net|facebook.{0,10}pixel", re.I),
+    # `facebook.com/tr` e' a metade `noscript` do mesmo pixel, e faltava. Sem
+    # ela o detector de terceiro reprovava a imagem de fallback do pixel que a
+    # propria regua exige — o mesmo defeito do script, na outra metade.
+    "pixel": re.compile(r"fbq\(|connect\.facebook\.net|facebook\.com/tr"
+                        r"|facebook.{0,10}pixel", re.I),
     "ga4": re.compile(r"gtag\(|googletagmanager\.com|G-[A-Z0-9]{8,}", re.I),
     "clarity": re.compile(r"clarity\.ms|clarity\(", re.I),
 }
@@ -56,6 +60,18 @@ MARCAS_DE_MEDICAO = {
 # URL absoluta servindo recurso em runtime
 _URL = re.compile(r"""["'](https?://[^"'\s]+)["']""")
 _HREF = re.compile(r"""href\s*=\s*["']([^"']+)["']""")
+
+# 🔴 `<a href>` E' PARA ONDE A PESSOA VAI, NAO O QUE A PAGINA CARREGA.
+# O `_URL` acima casa qualquer URL entre aspas, entao o link do checkout era
+# contado como "recurso de terceiro em tempo de execucao". Medido na pagina de
+# vendas real: das 6 URLs absolutas, a UNICA que sobrava acusada depois das
+# outras isencoes era uma ancora de checkout — ou seja, o detector acusava a
+# pagina por ter um botao de comprar.
+#
+# `<link href>` continua contando, porque folha de estilo a pagina carrega
+# mesmo. A diferenca esta na TAG, e por isso o padrao exige o `<a`.
+_ANCORA = re.compile(r"""<a\b[^>]*?href\s*=\s*["'](https?://[^"']+)["']""",
+                     re.I | re.S)
 
 # Hosts que nao contam como CDN de terceiro: fonte de letra e namespace de
 # especificacao nao servem midia da pagina.
@@ -192,16 +208,42 @@ def gate_medicao(fonte_bruta, exigidas):
     return saida
 
 
-def gate_cdn_de_terceiro(fonte_bruta, permitido):
+def gate_cdn_de_terceiro(fonte_bruta, permitido, exigidas=()):
     """URL absoluta servindo recurso em runtime.
 
     Achado do gabarito de num caso medido: o fundo animado vinha de CloudFront de
     terceiro. E' deterministico e barato de pegar.
+
+    🔴 O QUE A REGUA EXIGE, ELA NAO PODE REPROVAR.
+    Medido na mesma pagina, na mesma rodada, antes desta linha existir:
+
+        PASSA     medicao:pixel     presente
+        REPROVA   cdn-de-terceiro   1o: https://connect.facebook.net/...
+
+    As duas linhas falam do MESMO script. `medicao_exigida` manda instalar o
+    pixel; o detector de terceiro reprovava o arquivo que o instala. Nenhuma
+    pagina medida conseguia passar nos dois, e a pessoa nao tinha o que
+    consertar — que e' o alarme que ensina a ignorar a linha inteira.
+
+    A isencao sai das PROPRIAS marcas de medicao, e nao de uma lista escrita a
+    mao, para que as duas regras nao possam divergir depois. E vale so para o
+    que a regua exige: marca de medicao que ninguem pediu continua sendo
+    recurso de terceiro.
+
+    O que sobra do detector continua inteiro, e e' o que ele existia para
+    pegar: fonte, imagem, video e script que a PAGINA PRECISA para renderizar.
+    Pixel de medicao nao renderiza nada.
     """
     if permitido:
         return [Achado("cdn-de-terceiro", "passa", nota="permitido pela regua")]
+    padroes = [MARCAS_DE_MEDICAO[m] for m in exigidas
+               if m in MARCAS_DE_MEDICAO]
+    ancoras = set(_ANCORA.findall(fonte_bruta))
     urls = set(_URL.findall(fonte_bruta))
-    externos = sorted(u for u in urls if _host(u) not in HOSTS_PERMITIDOS)
+    externos = sorted(u for u in urls
+                      if u not in ancoras
+                      and _host(u) not in HOSTS_PERMITIDOS
+                      and not any(p.search(u) for p in padroes))
     if not externos:
         return [Achado("cdn-de-terceiro", "passa", valor=0)]
     return [Achado("cdn-de-terceiro", "reprova", valor=len(externos),
@@ -255,9 +297,34 @@ def avaliar(caminho, peca, reguas=None, raiz=None):
         return [], cod
 
     texto = " ".join(t.texto for t in trechos)
+
+    # 🔴 A PASTA PRECISA DO TEXTO BRUTO, IGUAL AO ARQUIVO SOZINHO.
+    # Aqui havia `if os.path.isfile(caminho) else ""`, e o `if bruta:` logo
+    # abaixo pulava TRES gates quando o caminho era pasta: medicao instalada,
+    # recurso de terceiro e link interno. Medido na mesma pagina, mesmos bytes:
+    #
+    #     gate <pasta>   -> LIMPO (0),   8 medidas
+    #     gate <arquivo> -> REPROVA (1), 12 medidas, 3 reprovas
+    #
+    # E a pasta e' o que o roteiro do `AGENTS.md` manda usar. O caminho
+    # documentado era o que escondia os gates — que e' a definicao de gate
+    # decorativo, so que pior, porque ele parecia estar rodando.
+    #
+    # LIMITE DECLARADO: numa pasta com varias paginas a bruta e' a
+    # CONCATENACAO. Entao `medicao:ga4` passa se QUALQUER pagina instalar o
+    # GA4, e nao se todas instalarem. Para a pergunta "esta pagina esta
+    # medida?", aponte o gate para o arquivo.
     try:
-        bruta = (open(caminho, encoding="utf-8").read()
-                 if os.path.isfile(caminho) else "")
+        if os.path.isfile(caminho):
+            bruta = open(caminho, encoding="utf-8").read()
+        else:
+            partes = []
+            for p in arquivos_de_pagina(caminho):
+                try:
+                    partes.append(open(p, encoding="utf-8").read())
+                except (OSError, UnicodeDecodeError):
+                    continue
+            bruta = "\n".join(partes)
     except (OSError, UnicodeDecodeError):
         bruta = ""
 
@@ -276,7 +343,8 @@ def avaliar(caminho, peca, reguas=None, raiz=None):
     if bruta:
         achados += gate_medicao(bruta, univ.get("medicao_exigida", []))
         achados += gate_cdn_de_terceiro(
-            bruta, univ.get("cdn_de_terceiro_permitido", False))
+            bruta, univ.get("cdn_de_terceiro_permitido", False),
+            univ.get("medicao_exigida", []))
         achados += gate_caminhos(bruta, raiz)
 
     if any(a.veredito == "reprova" for a in achados):
