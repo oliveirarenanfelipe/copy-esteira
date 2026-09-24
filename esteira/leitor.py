@@ -433,6 +433,32 @@ def main(argv=None):
             return OK
         for nome, n, onde in p["publicos"][:8]:
             print("  %-34s %2dx   %s" % (nome, n, onde))
+
+        # 🔴 `--declarado` LIGA a comparacao que da sentido a esta saida.
+        # `divergencia_de_publico` existia e nenhum `main()` chegava nela,
+        # achado por varredura de alcancabilidade. Sozinha, a lista acima diz
+        # com quem a pagina FALA; o achado nasce quando ela e' confrontada com
+        # quem o produto DIZ atender. Cada lado, sozinho, parece certo.
+        if "--declarado" in argv:
+            i = argv.index("--declarado")
+            declarado = [x.strip() for x in argv[i + 1].split(",")] \
+                if i + 1 < len(argv) else []
+            d = divergencia_de_publico(p["publicos"], declarado)
+            print()
+            if d is None:
+                print("  sem publico declarado para comparar.")
+                return OK
+            print("  PUBLICO DECLARADO PELO PRODUTO: %s"
+                  % ", ".join(d["declarado"]))
+            print("  PUBLICO QUE A PAGINA MAIS COMUNICA: %s   [%s]"
+                  % (d["comunicado"], d["fonte"]))
+            if d["diverge"]:
+                print()
+                print("  ACUSOU (1) — os dois NAO batem. A pagina esta falando")
+                print("  com quem o produto nao diz atender, e ninguem dentro")
+                print("  do projeto percebe, porque cada lado parece certo.")
+                return ACUSOU
+            print("  batem.")
         return OK
 
     r, cod = ler(caminho)

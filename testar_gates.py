@@ -1895,6 +1895,172 @@ def test_a_PASTA_e_o_ARQUIVO_dao_o_MESMO_veredito(tmp_path):
     assert cod_pasta == cod_arquivo, (cod_pasta, cod_arquivo)
 
 
+def test_a_VOLTA_da_camada_3_recusa_achado_sem_evidencia(tmp_path):
+    """MUTACAO: tirar a checagem de `evidencia` do `validar()` derruba isto.
+
+    🔴 `validar` e `consolidar` recusam achado sem citacao, e nenhum `main()`
+    chegava nelas ate num caso medido. A regra que sustenta o projeto inteiro estava
+    implementada, testada, e sem comando: um agente podia escrever dez achados
+    inventados e nada no repositorio os barrava.
+
+    E' o par do `esteira.dossie`: um leva o material ate a lente, o outro
+    recebe o que ela devolveu. Eu consertei a IDA e declarei a camada pronta
+    sem olhar a VOLTA.
+    """
+    from esteira import lentes as _l
+    entrada = tmp_path / "achados.json"
+    entrada.write_text(json.dumps({"achados": [
+        {"lente": "schwartz-consciencia", "grupo": "oficio-de-texto",
+         "regua": "r", "diagnostico": "A manchete nao encontra o leitor.",
+         "evidencia": "index.html:467", "confianca": "alta"},
+        {"lente": "hopkins-especificidade", "grupo": "arquitetura-da-oferta",
+         "regua": "r", "diagnostico": "Alegacao forte sem numero.",
+         "evidencia": "", "confianca": "alta"},
+    ]}, ensure_ascii=False), encoding="utf-8")
+
+    cod = _l.main([str(entrada)])
+    assert cod == ACUSOU, (
+        "havia achado sem evidencia e o comando saiu %s" % cod)
+
+    achados, fora = _l.de_json(json.loads(entrada.read_text(encoding="utf-8")))
+    r = _l.consolidar(achados, fora)
+    assert len(r["aceitos"]) == 1, r["aceitos"]
+    assert len(r["recusados"]) == 1, r["recusados"]
+    assert "evidencia" in r["recusados"][0][1], r["recusados"][0][1]
+
+    # e o caminho limpo sai 0
+    limpo = tmp_path / "ok.json"
+    limpo.write_text(json.dumps({"achados": [
+        {"lente": "a", "grupo": "oficio-de-texto", "regua": "r",
+         "diagnostico": "d", "evidencia": "p.html:1", "confianca": "alta"},
+        {"lente": "b", "grupo": "arquitetura-da-oferta", "regua": "r",
+         "diagnostico": "d", "evidencia": "p.html:2", "confianca": "media"},
+    ]}, ensure_ascii=False), encoding="utf-8")
+    assert _l.main([str(limpo)]) == OK
+
+
+def test_o_contraste_aceita_hex_porque_CSS_escreve_em_hex():
+    """MUTACAO: tirar `_rgb()` do `contraste()` derruba isto.
+
+    `hex_para_rgb` existia e ninguem a chamava. Ela e' a ponte obvia: a cor de
+    uma pagina real chega escrita em hexadecimal, e um medidor que so aceita
+    tupla obriga quem chama a converter na mao — e quem converte na mao
+    converte diferente.
+    """
+    por_tupla = medidas.contraste((255, 255, 255), (0, 0, 0))
+    por_hex = medidas.contraste("#FFFFFF", "#000000")
+    assert por_hex == por_tupla, (por_hex, por_tupla)
+    assert medidas.contraste("#FFF", "#000") == por_tupla, "forma curta"
+    assert medidas.contraste("nao-e-cor", "#000") is None
+
+
+def test_o_pior_contraste_vem_de_medidas_e_nao_de_um_min_solto(tmp_path):
+    """MUTACAO: voltar o `min(pares)` inline no `projeto.py` derruba isto.
+
+    A mesma conta morava em dois lugares. Duas copias divergem no dia em que
+    alguem melhora uma delas, e a de `medidas` carrega o motivo no docstring:
+    a media entre dois quadros nao descreve nenhum dos dois.
+    """
+    fonte = open(os.path.join(RAIZ, "esteira", "projeto.py"),
+                 encoding="utf-8").read()
+    assert "medidas.pior_contraste(" in fonte, (
+        "o `projeto` voltou a calcular o pior caso por conta propria")
+
+    # e a conta continua certa: o pior entre os quadros
+    quadros = [(10, 10, 14), (230, 230, 236)]
+    esperado = min(medidas.contraste_com_alpha((255, 255, 255), q, 0.5)
+                   for q in quadros)
+    assert medidas.pior_contraste((255, 255, 255), quadros, 0.5) == esperado
+
+
+def test_o_leitor_compara_o_publico_COMUNICADO_com_o_DECLARADO(tmp_path):
+    """MUTACAO: tirar o bloco `--declarado` do `main()` derruba isto.
+
+    `divergencia_de_publico` existia e nenhum `main()` chegava nela. Sozinha,
+    a lista de publicos diz com quem a pagina FALA; o achado nasce quando ela
+    e' confrontada com quem o produto DIZ atender. Cada lado, sozinho, parece
+    certo — e e' por isso que ninguem dentro do projeto percebe.
+    """
+    alvo = tmp_path / "p.html"
+    alvo.write_text(
+        "<p>Este curso e para advogados que querem escrever melhor.</p>"
+        "<p>Feito para advogados de escritorio pequeno.</p>", encoding="utf-8")
+
+    cod = leitor.main([str(alvo), "--publico", "--declarado", "eletricista"])
+    assert cod == ACUSOU, (
+        "a pagina fala com advogado, o produto declara eletricista, e o "
+        "comando saiu %s" % cod)
+
+    igual = leitor.main([str(alvo), "--publico", "--declarado", "advogado"])
+    assert igual == OK, igual
+
+
+def test_TODA_funcao_publica_e_alcancavel_a_partir_de_algum_comando():
+    """MUTACAO: acrescentar funcao publica que ninguem chama derruba isto.
+
+    🔴 E' O GATE DA CLASSE DE DEFEITO QUE MAIS CUSTOU NESTE PROJETO.
+
+    Duas vezes uma capacidade inteira ficou no repositorio sem porta, e as
+    duas foram achadas por acaso, nao por medicao:
+
+      · `criar.dossies()` montava o dossie das oito mentes, e NENHUMA CLI a
+        chamava. A Camada 3 subia sem o que ela tem de entregar.
+      · `lentes.validar()` e `lentes.consolidar()` recusam achado sem
+        evidencia, que e' a regra que sustenta o projeto, e nenhum `main()`
+        chegava nelas.
+
+    Teste unitario nao pega isso: as duas estavam TESTADAS. O que faltava era
+    a pergunta de ALCANCE — partindo dos comandos, da para chegar la?
+
+    A busca segue qualquer referencia ao nome, e nao so a chamada, porque
+    `corpus.py` despacha por tabela (`LEITORES = {".json": colher_json}`) e um
+    detector que so olha `Call` marcaria as tres como mortas.
+    """
+    import ast
+    alvo = os.path.join(RAIZ, "esteira")
+    defs, refs, sementes = {}, {}, []
+    for nome in sorted(os.listdir(alvo)):
+        if not nome.endswith(".py") or nome == "__init__.py":
+            continue
+        modulo = nome[:-3]
+        fonte = open(os.path.join(alvo, nome), encoding="utf-8").read()
+        if '__name__ == "__main__"' in fonte:
+            sementes.append(modulo)
+        for no in ast.walk(ast.parse(fonte)):
+            if isinstance(no, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                defs[(modulo, no.name)] = True
+                usados = set()
+                for n2 in ast.walk(no):
+                    if isinstance(n2, ast.Name):
+                        usados.add(n2.id)
+                    elif isinstance(n2, ast.Attribute):
+                        usados.add(n2.attr)
+                refs[(modulo, no.name)] = usados
+        # referencia no corpo do modulo (tabela de despacho, constante)
+        for no in ast.parse(fonte).body:
+            if isinstance(no, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for n2 in ast.walk(no):
+                if isinstance(n2, ast.Name):
+                    refs.setdefault((modulo, "<modulo>"), set()).add(n2.id)
+
+    fila = [(m, "main") for m in sementes if (m, "main") in defs]
+    fila += [k for k in refs if k[1] == "<modulo>"]
+    vivo = set(fila)
+    while fila:
+        atual = fila.pop()
+        for nome in refs.get(atual, ()):
+            for chave in defs:
+                if chave[1] == nome and chave not in vivo:
+                    vivo.add(chave)
+                    fila.append(chave)
+
+    mortas = ["%s.%s()" % (m, f) for (m, f) in sorted(defs)
+              if (m, f) not in vivo and not f.startswith("_")]
+    assert not mortas, (
+        "funcao publica que nenhum comando alcanc<caminho local>  " + "\n  ".join(mortas))
+
+
 def test_o_dossie_ENTREGA_o_conteudo_das_lentes_a_quem_escreve(tmp_path):
     """MUTACAO: quebrar `montar()` ou tirar o `dossie.py` derruba isto.
 

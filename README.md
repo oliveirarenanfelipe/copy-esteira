@@ -141,6 +141,17 @@ python -m esteira.criar ./candidatas.json --peca pagina-de-vendas --saida ./said
 # 7. leia os códigos de saída antes de escrever o relatório
 ```
 
+Se você anotou achados aplicando as lentes do passo 4, passe-os de volta antes de escrever o
+relatório. Este comando recusa todo achado que não cita de onde foi visto:
+
+```bash
+python -m esteira.lentes ./achados.json
+```
+
+Ele é a volta do passo 4: o `dossie` leva o material até a lente, e este recebe o que a lente
+devolveu. Achado sem `arquivo:linha` sai na lista de recusados, com o motivo, e o comando **acusa**.
+É a regra que sustenta o resto — achado sem evidência não existe.
+
 O **passo 4** é o que as oito mentes têm a dizer sobre o seu material: cada lente entrega a pergunta
 que ela faz e a régua que ela aplica, mais as que se declaram inaplicáveis ao seu caso. É insumo
 para escrever, e não veredito — nenhuma lente reprova nada.

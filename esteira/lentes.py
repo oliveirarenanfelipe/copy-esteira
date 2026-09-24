@@ -1,10 +1,28 @@
 # -*- coding: utf-8 -*-
 """CAMADA 3 — o executor das mentes, em dois grupos.
 
-    from esteira.lentes import pre_achados, dossie_de, validar, consolidar
+    python -m esteira.lentes <achados.json>
+    python -m esteira.lentes <achados.json> --fontes <material.json>
 
-CHAMADOR: `esteira/criar.py` (ligado no mesmo commit) e `testar_gates.py`.
+CHAMADOR: a CLI acima, pelo `main()` no fim deste arquivo; `esteira/criar.py`;
+`esteira/dossie.py`, que e' a IDA do mesmo caminho; e `testar_gates.py`.
 Segundo chamador de `esteira/mentes.json`.
+
+🔴 ESTA E' A VOLTA, E ELA FICOU SEM PORTA ATE num caso medido
+----------------------------------------------------
+O `esteira.dossie` leva o material ate a lente. `validar` e `consolidar`
+recebem o que a lente devolveu e RECUSAM o achado que nao cita evidencia.
+
+Medido por varredura de alcancabilidade no repositorio ja publicado: partindo
+de todos os `main()`, nenhum chegava nestas duas funcoes. Elas estavam
+implementadas, testadas, e sem comando.
+
+Efeito: a regra que sustenta o projeto inteiro — "achado sem evidencia e'
+recusado" — nao tinha como ser aplicada por quem clonou. Um agente podia
+escrever dez achados inventados e nada no repositorio os barrava.
+
+E' o mesmo defeito do dossie, na outra ponta do mesmo caminho: eu consertei a
+IDA e declarei a camada pronta sem olhar a VOLTA.
 
 JA EXISTIA? `criar.py:59` decide QUAIS lentes se aplicam e `:84` conta os
 grupos. Nada montava o dossie que a lente recebe nem validava o que ela
@@ -32,9 +50,14 @@ Assim o LLM faz o que so ele faz, e o veto continua em codigo (D-04).
 argumento. A frase em portugues sai na Camada 5, com a gramatica do produto.
 Mente que escreve direto produz copy traduzida, que e' copy de ninguem.
 """
+import json
+import sys
+
 import re
 
-from esteira import medidas
+from esteira import medidas, saida_legivel
+
+OK, ACUSOU, NAO_USAR, NAO_MEDIR = 0, 1, 2, 3
 
 CONFIANCAS = ("alta", "media", "baixa")
 
@@ -183,3 +206,72 @@ def impressao(r):
     for lente, grupo, motivo in r["inaplicaveis"]:
         L.append("    %-22s (%s): %s" % (lente, grupo, motivo))
     return "\n".join(L)
+
+
+def de_json(dados):
+    """Os achados como o LLM os devolve, virando objetos que dao para validar.
+
+    O campo que mais falta e' `evidencia`, e e' justamente o que faz o achado
+    existir. Achado sem ele chega aqui, e' RECUSADO, e aparece na lista de
+    recusados com o motivo — nunca some em silencio.
+    """
+    achados = []
+    for a in dados.get("achados", []):
+        achados.append(Achado(
+            lente=a.get("lente", "?"), grupo=a.get("grupo", "?"),
+            regua=a.get("regua", ""), diagnostico=a.get("diagnostico", ""),
+            evidencia=a.get("evidencia", ""),
+            confianca=a.get("confianca", "media")))
+    fora = [tuple(x) for x in dados.get("inaplicaveis", []) if len(x) == 3]
+    return achados, fora
+
+
+def main(argv=None):
+    saida_legivel()
+    argv = list(sys.argv[1:] if argv is None else argv)
+    livres = [a for a in argv if not a.startswith("--")]
+    if not livres:
+        print("uso: python -m esteira.lentes <achados.json>")
+        print("     recebe o que as lentes devolveram e RECUSA o achado que")
+        print("     nao cita evidencia. O material vai pelo `esteira.dossie`.")
+        return NAO_USAR
+
+    try:
+        dados = json.load(open(livres[0], encoding="utf-8"))
+    except (OSError, ValueError):
+        print("nao deu para ler os achados. NAO DEU PARA MEDIR (3).")
+        return NAO_MEDIR
+
+    fontes = None
+    if "--fontes" in argv:
+        i = argv.index("--fontes")
+        if i + 1 < len(argv):
+            try:
+                bruto = json.load(open(argv[i + 1], encoding="utf-8"))
+            except (OSError, ValueError):
+                print("nao deu para ler as fontes. NAO DEU PARA USAR (2).")
+                return NAO_USAR
+            # aceita a saida de `esteira.dossie --json`, que traz o material
+            material = []
+            for d in bruto.get("dossies", []):
+                material += [onde for _texto, onde in d.get("material", [])]
+            fontes = set(material) or None
+
+    achados, fora = de_json(dados)
+    if not achados and not fora:
+        print("nenhum achado e nenhuma declaracao no arquivo.")
+        print("  Gate que nao mede nao aprova — e isto NAO e um verde. (3)")
+        return NAO_MEDIR
+
+    r = consolidar(achados, fora, fontes=fontes)
+    print(impressao(r))
+
+    # 🔴 O VEREDITO E' O CODIGO DE SAIDA, igual ao resto da esteira.
+    # Achado recusado nao e' aviso: se sobrou algum, este comando ACUSA.
+    if r["recusados"] or r["faltando"]:
+        return ACUSOU
+    return OK
+
+
+if __name__ == "__main__":
+    sys.exit(main())

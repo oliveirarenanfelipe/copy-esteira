@@ -171,7 +171,24 @@ def luminancia(rgb):
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
+def _rgb(cor):
+    """Aceita `(r, g, b)` ou `#1D3557`, porque CSS escreve em hexadecimal.
+
+    🔴 `hex_para_rgb` existia e NINGUEM a chamava — achado por varredura de
+    alcancabilidade a partir dos `main()`. Ela e' a ponte obvia: a cor de uma
+    pagina real chega escrita em hex, e um medidor de contraste que so aceita
+    tupla obriga quem chama a converter na mao. Quem converte na mao converte
+    diferente.
+    """
+    if isinstance(cor, str):
+        return hex_para_rgb(cor)
+    return cor
+
+
 def contraste(cor1, cor2):
+    cor1, cor2 = _rgb(cor1), _rgb(cor2)
+    if cor1 is None or cor2 is None:
+        return None
     l1, l2 = luminancia(cor1), luminancia(cor2)
     claro, escuro = max(l1, l2), min(l1, l2)
     return round((claro + 0.05) / (escuro + 0.05), 2)

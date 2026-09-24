@@ -102,11 +102,18 @@ def varrer(raiz):
             if alpha <= 0:
                 r["invisiveis"] += 1
                 continue
+            # 🔴 O PIOR CASO SAI DE `medidas.pior_contraste`, e nao de um
+            # `min()` escrito aqui. A conta era a mesma em dois lugares, e a
+            # de `medidas` carrega o motivo dela no docstring: a media entre
+            # dois quadros nao descreve nenhum dos dois, e o que o leitor
+            # sofre e' o pior. Duas copias da mesma conta divergem no dia em
+            # que alguem melhora uma delas.
             pares = [medidas.contraste_com_alpha(base, q, alpha)
                      for q in QUADROS]
             r["contraste"].append({
                 "arquivo": os.path.basename(caminho), "linha": linha,
-                "trecho": trecho, "melhor": max(pares), "pior": min(pares),
+                "trecho": trecho, "melhor": max(pares),
+                "pior": medidas.pior_contraste(base, QUADROS, alpha),
             })
     r["arquivos"] = len(list(varredura._arquivos(raiz)))
     return r

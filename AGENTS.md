@@ -299,6 +299,23 @@ Cada lente também declara quando **não** serve ao seu caso, em vez de forçar 
 declaração sai na mesma saída, e ela é informação: dizer "aqui não se aplica" é mais honesto que
 produzir um achado morno.
 
+🔴 **E devolva os seus achados para serem validados, antes de escrever o relatório.** O passo 5 é a
+ida; esta é a volta:
+
+```bash
+python -m esteira.lentes ./achados.json
+python -m esteira.lentes ./achados.json --fontes ./dossie.json
+```
+
+O formato é `{"achados": [{"lente", "grupo", "regua", "diagnostico", "evidencia", "confianca"}]}`.
+Todo achado que chegar sem `evidencia` é **recusado**, aparece na lista de recusados com o motivo, e
+o comando sai `1`. Com `--fontes` apontando para a saída de `esteira.dossie --json`, ele também
+confere se a citação bate com o material que você recebeu — porque lente que não recebeu a fonte
+tende a inventar uma.
+
+Não é burocracia: é a única coisa que separa um achado de uma opinião bem escrita. Se você escrever
+o relatório sem passar por aqui, nada no repositório impede que um diagnóstico inventado entre nele.
+
 No relatório, para cada achado: **o valor medido, o limiar que o julgou, e de onde veio o
 texto.** Achado sem evidência é recusado pela própria esteira na Camada 3 — não o
 apresente na sua.
