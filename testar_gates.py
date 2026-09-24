@@ -1858,6 +1858,55 @@ def test_a_PASTA_e_o_ARQUIVO_dao_o_MESMO_veredito(tmp_path):
     assert cod_pasta == cod_arquivo, (cod_pasta, cod_arquivo)
 
 
+def test_as_DUAS_portas_mostram_as_SEIS_CLIs():
+    """MUTACAO: tirar um `esteira.<peca>` do README ou do AGENTS derruba isto.
+
+    🔴 O README e a porta do HUMANO; o `AGENTS.md` e a porta da IA. Medido em
+    num caso medido, com o roteiro da IA ja consertado:
+
+        esteira.projeto  ->  README: 0 vezes   AGENTS: 3
+        esteira.criar    ->  README: 0 vezes   AGENTS: 2
+
+    Duas das seis pecas nao existiam para quem le o README — e uma delas e' a
+    que cumpre a promessa da PRIMEIRA FRASE dele, "a copy nova para por no
+    lugar". Eu tinha consertado o roteiro da IA no mesmo dia e nao conferi a
+    porta do humano: mesmo defeito, outro arquivo.
+
+    Este teste vale para os DOIS documentos de proposito. Peca nova tem de
+    aparecer nas duas portas, ou uma delas volta a mentir sobre o que existe.
+    """
+    portas = [("README", _material("README.md", "publicar/README.md")),
+              ("AGENTS", _material("AGENTS.md", "publicar/AGENTS.md"))]
+    faltando = []
+    for rotulo, caminho in portas:
+        assert caminho, "a porta %s sumiu do repositorio" % rotulo
+        texto = open(caminho, encoding="utf-8").read()
+        for nome in ("porta", "projeto", "gate", "leitor", "criar", "aferir"):
+            if "esteira.%s" % nome not in texto:
+                faltando.append("%s nao cita `esteira.%s`" % (rotulo, nome))
+    assert not faltando, "porta que esconde pec<caminho local>  " + "\n  ".join(faltando)
+
+
+def test_o_README_mostra_o_caminho_INTEIRO_e_nao_so_a_auditoria():
+    """MUTACAO: tirar o passo do `criar` do roteiro do README derruba isto.
+
+    A primeira frase do README promete duas coisas: a auditoria E a copy nova
+    para por no lugar. Um roteiro que para na auditoria transforma a segunda
+    metade da promessa em texto sem comando, que e' a versao documental do
+    defeito que este repositorio persegue no codigo.
+    """
+    caminho = _material("README.md", "publicar/README.md")
+    texto = open(caminho, encoding="utf-8").read()
+    bloco = re.search(r"Como usar, do come(?:ç|c)o ao fim(.*?)\n## ",
+                      texto, re.S)
+    assert bloco, "o README perdeu a secao de como usar"
+    corpo = bloco.group(1)
+    for passo in ("esteira.porta", "esteira.projeto", "esteira.gate",
+                  "esteira.leitor", "esteira.criar"):
+        assert passo in corpo, (
+            "o roteiro do README nao chega em `%s`" % passo)
+
+
 def test_o_roteiro_da_porta_para_a_IA_chega_na_CRIACAO():
     """MUTACAO: tirar o passo do `criar` do roteiro derruba isto.
 

@@ -59,6 +59,71 @@ duas vezes. Isso é aceitável numa sugestão e inaceitável num veto.
 
 ---
 
+## Como usar, do começo ao fim
+
+Não há instalação. Clone, e confira que o motor está inteiro antes de confiar no que ele disser:
+
+```bash
+python testar_gates.py
+```
+
+### Com um agente de código junto
+
+É o modo para o qual ela foi feita, porque a Camada 5 precisa de alguém que escreva.
+
+1. Mande o agente ler o `AGENTS.md` da raiz. Ele diz o que existe e o que o agente não deve fazer.
+2. Peça em língua normal: *"audita minha página de vendas em ./lp e me dá manchete nova"*.
+3. O agente roda o roteiro abaixo, escreve as candidatas e entrega o que passou no veto.
+
+### Sozinho, sem agente
+
+Peça o roteiro à porta. Ela lê o pedido em língua normal, propõe os comandos na ordem, e não
+executa nada:
+
+```bash
+python -m esteira.porta "audita a copy da minha página de vendas em ./lp e me propõe manchete nova"
+```
+
+### O roteiro, na ordem, e o que cada passo responde
+
+```bash
+# 1. o projeto inteiro: rotas, links que não resolvem, login, contraste, recurso de terceiro
+python -m esteira.projeto ./lp
+
+# 2. os fatos da peça: forma, legibilidade, medição instalada
+python -m esteira.gate ./lp --peca pagina-de-vendas --saida ./saida
+
+# 3. a compreensão, que os passos 1 e 2 não medem
+python -m esteira.leitor ./lp
+
+# 4. escreva as candidatas num JSON. O molde está em `exemplos/candidatas.json`
+
+# 5. a copy nova, vetada pelos MESMOS gates do passo 2
+python -m esteira.criar ./candidatas.json --peca pagina-de-vendas --saida ./saida
+
+# 6. leia os códigos de saída antes de escrever o relatório
+```
+
+O passo 4 é a parte que esta ferramenta não faz por você, e é uma decisão em vez de uma falta: o
+veto é aritmética, e aritmética não escreve. Quem escreve propõe, quem veta é código.
+
+O mínimo que o passo 5 aceita é isto, com `molde`, `lente` e `contexto` opcionais:
+
+```json
+{"candidatas": [{"texto": "a manchete que você quer testar"}]}
+```
+
+### Duas coisas que surpreendem na primeira vez
+
+O `criar` sai **1** quando alguma candidata é vetada, mesmo havendo aprovadas. Não é erro: é o lote
+tendo copy reprovada dentro. As aprovadas ficam em `saida/copy-nova.txt`, que é o arquivo que você
+usa, e as vetadas em `saida/_reprovados/`.
+
+O `projeto` sai **3** numa pasta sem arquivo de página. Três não é verde: quer dizer que não deu
+para medir, e a diferença entre isso e "está limpo" é o motivo de esta ferramenta existir.
+
+---
+
 ## O que ela mede sem instalar nada
 
 ### Legibilidade em português
