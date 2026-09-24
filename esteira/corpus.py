@@ -91,20 +91,44 @@ class Trecho:
         return "Trecho(%r, %s)" % (self.texto[:40], self.onde())
 
 
+def _apaga(m):
+    """Apaga o trecho e GUARDA as quebras de linha que ele tinha.
+
+    🔴 ESTA FUNCAO EXISTE POR CAUSA DO PIOR DEFEITO QUE ESTE REPOSITORIO TEVE.
+
+    Antes, cada limpeza trocava o trecho inteiro por um unico espaco. Como a
+    linha do achado e' contada DEPOIS, sobre o texto ja limpo, toda evidencia
+    saia deslocada pelo tamanho do que tinha sido apagado. Medido numa pagina
+    de vendas real, com um `<style>` de umas 430 linhas:
+
+        a saida citava    index.html:335
+        o texto morava em index.html:772
+
+    As seis evidencias apontavam para CSS ou comentario, nenhuma para o texto
+    citado. Uma ferramenta construida para recusar achado sem fonte estava
+    fabricando a propria fonte, em silencio, e com cara de precisao.
+
+    Guardar so as quebras basta: encurtar DENTRO de uma linha nao move
+    ninguem, porque o que se conta e' `\\n`.
+    """
+    return " " + "\n" * m.group(0).count("\n")
+
+
 def _sem_comentarios(fonte):
     """Tira comentario de bloco, de linha e de HTML.
 
     Faz parte da trava: comentario e' conversa do programador com ele mesmo.
     """
-    s = _COMENT_BLOCO.sub(" ", fonte)
-    s = _COMENT_LINHA.sub(" ", s)
-    s = _COMENT_HTML.sub(" ", s)
+    s = _COMENT_BLOCO.sub(_apaga, fonte)
+    s = _COMENT_LINHA.sub(_apaga, s)
+    s = _COMENT_HTML.sub(_apaga, s)
     return s
 
 
 def _tira_blocos_sem_copy(s):
     for tag in TAGS_SEM_COPY:
-        s = re.sub(r"<%s\b.*?</%s>" % (tag, tag), " ", s, flags=re.S | re.I)
+        s = re.sub(r"<%s\b.*?</%s>" % (tag, tag), _apaga, s,
+                   flags=re.S | re.I)
     return s
 
 

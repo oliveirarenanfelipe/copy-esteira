@@ -20,9 +20,21 @@ trabalho. A criacao nao e' um segundo produto, e' a prova de que a auditoria
 entendeu o caso."  (D-05)
 
 E a contrapartida, que e' o que da' peso a ela: a copy que a esteira escreve
-passa pelos MESMOS gates da Camada 1. Candidata reprovada nao chega na pasta
-de saida, igual a qualquer peca de terceiro. Regua que vale so para os outros
-nao e' regua, e' opiniao.
+passa pelos mesmos gates da Camada 1, com a MESMA folga e o MESMO regime da
+peca. Candidata reprovada nao chega na pasta de saida, igual a qualquer peca
+de terceiro. Regua que vale so para os outros nao e' regua, e' opiniao.
+
+🔴 A UNICA DIFERENCA QUE SOBRA, E ELA E' DECLARADA
+---------------------------------------------------
+Esta peca acrescenta UM achado que o `gate.py` nao tem: `universal:ilegivel`,
+o piso de legibilidade logo abaixo. Ele existe porque manchete ilegivel tem de
+reprovar mesmo sem alvo medido, e isso nao depende do corpus de ninguem.
+
+A frase aqui dizia "os MESMOS gates" sem ressalva, e a frase era maior que o
+codigo — que e' o defeito que este repositorio persegue nos outros. Medido: 52
+pares de folga comparaveis entre a peca e a reserva, 31 mais duros aqui e 21
+mais FROUXOS. Nao era "mais duro", era DIVERGENTE, e o lado frouxo e' o pior,
+porque ali esta peca aprovaria o que o gate reprova.
 
 🔴 O QUE ESTA PECA NAO FAZ (D-04 e D-12)
 -----------------------------------------

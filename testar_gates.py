@@ -1463,6 +1463,94 @@ def test_o_aferidor_como_COMANDO_responde_dentro_do_contrato():
     assert cod in (OK, ACUSOU, NAO_MEDIR), cod
 
 
+def test_o_leitor_DECLARA_que_nao_calcula_visibilidade_CSS(tmp_path):
+    """MUTACAO: apagar a linha do limite derruba isto.
+
+    A saida abria com "Le SO o texto visivel", e a frase era maior que o que a
+    peca faz: ela tira comentario, `<style>`, `<script>` e nome de componente,
+    e nao calcula CSS nenhum. Medido numa pagina real, uma das respostas
+    contadas vinha de um FAQ recolhido por padrao (`max-height: 0`), que o
+    visitante so ve se clicar.
+
+    Nao da para consertar a MEDIDA sem renderizar a pagina. Da para consertar
+    a AFIRMACAO, e e' o que este teste guarda: o limite sai impresso junto com
+    o placar, e nao escondido no codigo.
+    """
+    alvo = tmp_path / "p.html"
+    alvo.write_text("<p>Curso para eletricistas por R$97 hoje.</p>",
+                    encoding="utf-8")
+    r, _ = leitor.ler(str(alvo))
+    saida = leitor.impressao(r, str(alvo))
+    assert "LIMITE" in saida, "o limite nao e' declarado na saida"
+    assert "visibilidade CSS" in saida
+    assert "Le SO o texto visivel" not in saida, (
+        "a promessa grande demais voltou")
+
+
+def test_a_pista_do_preco_nao_sai_cortada(tmp_path):
+    """MUTACAO: voltar o padrao para `R\\$\\s*\\d` derruba isto.
+
+    Numa pagina de R$37 a pista impressa era "R$3". O que e' detectado nao
+    muda com o conserto, porque as duas versoes casam nos mesmos textos. O que
+    muda e' o que a pessoa le: "R$3" nao e' um preco aproximado, e' outro
+    preco, e numero cortado le como fato.
+    """
+    alvo = tmp_path / "p.html"
+    alvo.write_text("<p>Kit completo por R$37 a vista, hoje.</p>",
+                    encoding="utf-8")
+    r, cod = leitor.ler(str(alvo))
+    assert cod == OK, cod
+    custa = [achou for nome, achou in r["respostas"]
+             if nome.startswith("5 ")]
+    assert custa and custa[0], r["respostas"]
+    pista = custa[0][0]
+    assert "R$37" in pista, "a pista do preco saiu cortada: %r" % (pista,)
+
+
+def test_a_linha_da_evidencia_aponta_para_a_linha_DE_VERDADE(tmp_path):
+    """MUTACAO: voltar a apagar bloco sem guardar as quebras derruba isto.
+
+    🔴 E' o defeito mais grave que este repositorio ja teve, porque ele ataca
+    a regra que sustenta tudo: "achado sem evidencia e' recusado".
+
+    `colher_marcado` limpava comentario e bloco `<style>`/`<script>` trocando
+    o trecho inteiro por UM espaco, e so depois contava as quebras de linha.
+    Toda linha citada como fonte saia deslocada pelo tamanho do que foi
+    apagado. Medido numa pagina de vendas real, com `<style>` de ~430 linhas:
+
+        o leitor citava  index.html:335
+        o texto morava em index.html:772
+
+    As SEIS evidencias da saida apontavam para CSS ou comentario, nenhuma
+    para o texto citado. Uma ferramenta feita para impedir afirmacao sem
+    fonte estava fabricando a propria fonte.
+    """
+    alvo = tmp_path / "p.html"
+    alvo.write_text(
+        "<html>\n"
+        "<!-- um comentario\n"
+        "     que ocupa tres\n"
+        "     linhas inteiras -->\n"
+        "<style>\n.a { color: red; }\n.b { color: blue; }\n</style>\n"
+        "<body>\n"
+        "<h1>O kit que organiza o seu servico.</h1>\n"
+        "</body></html>\n", encoding="utf-8")
+
+    bruto = alvo.read_text(encoding="utf-8").split("\n")
+    esperado = next(i for i, l in enumerate(bruto, 1)
+                    if "O kit que organiza" in l)
+
+    trechos, cod = colher(str(alvo))
+    assert cod == OK
+    achado = [t for t in trechos if "O kit que organiza" in t.texto]
+    assert achado, [t.texto for t in trechos]
+    assert achado[0].linha == esperado, (
+        "a evidencia aponta para a linha %d e o texto mora na %d"
+        % (achado[0].linha, esperado))
+    # confirmacao cruzada: a linha citada, lida no arquivo, contem o texto
+    assert "O kit que organiza" in bruto[achado[0].linha - 1]
+
+
 def test_o_que_a_regua_EXIGE_ela_nao_pode_reprovar():
     """MUTACAO: parar de passar `exigidas` ao detector derruba isto.
 

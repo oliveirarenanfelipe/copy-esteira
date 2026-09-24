@@ -22,7 +22,22 @@ nao o que ela informa. Uma frase curta, direta e vazia pontua bem.
 
 🔴 O QUE "FRIO" QUER DIZER, E E' A TRAVA DESTA PECA
 ----------------------------------------------------
-O leitor le SO o texto visivel, pela Camada 0. Nome de arquivo, nome de
+🔴 O QUE "VISIVEL" QUER DIZER AQUI, E O QUE ELE NAO QUER DIZER
+---------------------------------------------------------------
+Esta peca dizia "le SO o texto visivel", e a frase era grande demais para o
+que ela faz. Ela tira comentario, `<style>`, `<script>` e nome de componente.
+Ela NAO calcula visibilidade CSS, e nao tem como: sem renderizar a pagina,
+`max-height: 0` e' so mais uma declaracao.
+
+Medido numa pagina de vendas real: uma das respostas contadas vinha de dentro
+de um item de FAQ recolhido por padrao. O visitante que nao clica no acordeao
+nao le aquele texto, e o placar contou como se lesse. Entao o placar erra para
+CIMA, e o limite agora sai impresso junto com ele.
+
+Prometer mais precisao do que se entrega e' o mesmo defeito que este
+repositorio persegue nos outros, so que na primeira linha da propria saida.
+
+O leitor le o texto da pagina, pela Camada 0. Nome de arquivo, nome de
 componente e comentario de codigo sao proibidos aqui com mais forca que em
 qualquer outra camada: um leitor que leu `pricing-table.tsx` deixou de ser
 frio. O visitante nao tem esse contexto, e e' o visitante que esta sendo
@@ -95,7 +110,12 @@ AS_DEZ = [
      r"materiais?|ferramentas?)\b)"),
 
     ("5 quanto custa",
-     r"(R\$\s*\d|\b(gr[aá]tis|gratuito|sem custo|de gra[cç]a|investimento "
+     # 🔴 `R\$\s*\d` casava UM digito, e a pista impressa saia "R$3" numa
+     # pagina de R$37. O que e' DETECTADO nao muda, porque as duas versoes
+     # casam nos mesmos textos; o que muda e' o pedaco que aparece na saida.
+     # E numero cortado le como fato: "R$3" nao e' um preco aproximado, e'
+     # outro preco.
+     r"(R\$\s*[\d.,]+|\b(gr[aá]tis|gratuito|sem custo|de gra[cç]a|investimento "
      r"(?:de|[eé])|por apenas|valor (?:de|[eé])|\d+\s*x\s*de|parcelad)\b)"),
 
     ("6 quanto tempo leva",
@@ -261,7 +281,13 @@ def divergencia_de_publico(comunicado, declarado):
 
 def impressao(r, caminho):
     L = ["LEITOR FRIO — %s" % caminho, "",
-         "  Le SO o texto visivel. Nome de arquivo e de componente nao entram.",
+         "  Le o texto da PAGINA. Nome de arquivo e de componente nao entram,"
+         " nem comentario,",
+         "  nem o que esta dentro de <style> ou <script>.",
+         "  LIMITE: nao calcula visibilidade CSS. Resposta de FAQ recolhida"
+         " (`max-height: 0`)",
+         "  conta como texto, e o visitante que nao clica nao a ve. O placar"
+         " pode estar ALTO.",
          ""]
     for nome, achou in r["respostas"]:
         if achou:
