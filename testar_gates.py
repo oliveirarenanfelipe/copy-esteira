@@ -1895,6 +1895,86 @@ def test_a_PASTA_e_o_ARQUIVO_dao_o_MESMO_veredito(tmp_path):
     assert cod_pasta == cod_arquivo, (cod_pasta, cod_arquivo)
 
 
+def test_a_PORTA_propoe_a_camada_3_e_nao_pula_direto_para_a_escrita():
+    """MUTACAO: tirar o `dossie` ou o `lentes` do `roteiro()` derruba isto.
+
+    🔴 A TERCEIRA PORTA, que eu esqueci. Consertei o roteiro do README e o do
+    `AGENTS.md` para incluir a Camada 3, e deixei de fora a `esteira.porta` —
+    que e' justamente a que a pessoa usa quando nao le nenhum dos dois.
+
+    Medido por um agente cego que rodou a porta: o plano vinha com 5 linhas e
+    pulava os dois passos que o `AGENTS.md` chama de "o que separa trabalho de
+    critica". Quem seguisse so a porta escreveria a manchete sem lente nenhuma.
+
+    Documentacao em tres lugares so esta consertada quando os tres concordam.
+    """
+    from esteira import porta
+    p = porta.planejar("escreve a manchete nova da pagina de vendas em ./lp")
+    assert p["acao"] == "criar", p["acao"]
+    junto = "\n".join(p["comandos"])
+    for passo in ("esteira.projeto", "esteira.gate", "esteira.leitor",
+                  "esteira.dossie", "esteira.lentes", "esteira.criar"):
+        assert passo in junto, (
+            "a porta nao propoe `%s`:\n%s" % (passo, junto))
+
+    # e a ordem importa: a Camada 3 vem ANTES de escrever
+    assert junto.index("esteira.dossie") < junto.index("esteira.criar"), (
+        "a porta manda escrever antes de entregar as lentes")
+
+
+def test_a_evidencia_aceita_FAIXA_de_linhas_que_contem_o_material():
+    """MUTACAO: tirar `_bate_com_fonte` do `validar()` derruba isto.
+
+    🔴 Recusar faixa era FALSO POSITIVO, e custou caro num uso real.
+
+    Um agente cego citou `index.html:465-469`, que e' a tag `<h1>` inteira no
+    HTML e CONTEM a linha 467 que o extrator colheu. O validador recusou 4 de
+    5 achados VERDADEIROS, e ele teve de abrir o `dossie.json` para caçar qual
+    linha dentro da tag o extrator reconhece.
+
+    A citacao dele estava certa: apontava para o lugar exato. O errado era
+    exigir a mesma granularidade do extrator. Gate que reprova achado
+    verdadeiro ensina a pessoa a contornar o gate.
+    """
+    from esteira.lentes import _bate_com_fonte as bate
+    fontes = {"index.html:467", "index.html:563"}
+
+    assert bate("index.html:467", fontes), "linha exata"
+    assert bate("index.html:465-469", fontes), (
+        "faixa que contem 467 foi recusada, e ela aponta para o lugar certo")
+
+    # e o que NAO aponta para nada continua recusado, que e' o ponto
+    assert not bate("index.html:100-200", fontes)
+    assert not bate("outro.html:467", fontes)
+    assert not bate("inventado.html:1", fontes)
+
+
+def test_o_VALIDAR_usa_mesmo_o_casamento_de_faixa(tmp_path):
+    """MUTACAO: trocar `_bate_com_fonte(...)` por `alvo not in fontes`.
+
+    🔴 EU COMETI ESTE ERRO DUAS VEZES NO MESMO DIA, e so vi porque rodei a
+    mutacao. O teste de cima chama `_bate_com_fonte` DIRETO: ele prova que a
+    funcao esta certa, e nao que alguem a usa. A mutacao que arrancava a
+    chamada de dentro do `validar()` deixava a suite verde.
+
+    Funcao correta e desligada e' no orfao. Teste que so exercita a funcao e'
+    o orfao com teste em volta. Este aqui percorre o caminho real, do
+    `validar()` para fora.
+    """
+    from esteira import lentes as _l
+    fontes = {"index.html:467"}
+    a = _l.Achado("collier-entrada", "oficio-de-texto", "r",
+                  "A manchete fala do produto, nao da situacao do leitor.",
+                  "index.html:465-469", "alta")
+    ok, motivo = _l.validar(a, fontes)
+    assert ok, "o `validar()` recusou faixa verdadeira: %s" % motivo
+
+    ruim = _l.Achado("x", "oficio-de-texto", "r", "d",
+                     "inventado.html:1", "alta")
+    nok, _ = _l.validar(ruim, fontes)
+    assert not nok, "citacao sem lastro passou"
+
+
 def test_a_VOLTA_da_camada_3_recusa_achado_sem_evidencia(tmp_path):
     """MUTACAO: tirar a checagem de `evidencia` do `validar()` derruba isto.
 

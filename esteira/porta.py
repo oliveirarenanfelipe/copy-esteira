@@ -143,6 +143,16 @@ def roteiro(acao, caminho, peca):
         "python -m esteira.projeto %s" % caminho,
         "python -m esteira.gate %s --peca %s --saida ./saida" % (caminho, peca),
         "python -m esteira.leitor %s" % caminho,
+        # 🔴 A CAMADA 3 ENTRA NO ROTEIRO DA PORTA, e ela ficou de fora.
+        # Medido por um agente cego que seguiu SO o que a porta propoe: ele
+        # teria escrito a manchete sem lente nenhuma, porque a porta pulava
+        # os dois passos que o `AGENTS.md` chama de "o que separa trabalho de
+        # critica". Eu consertei o roteiro do README e o do AGENTS.md e
+        # esqueci a TERCEIRA porta, que e' esta — a que a pessoa usa quando
+        # nao le nenhum dos dois.
+        "python -m esteira.dossie %s --peca %s" % (caminho, peca),
+        "# anote os achados num JSON, citando `arquivo:linha` de cada um",
+        "python -m esteira.lentes ./achados.json --fontes ./dossie.json",
     ]
     if acao == "medir":
         return ["python -m esteira.gate %s --peca %s --saida ./saida"

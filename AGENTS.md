@@ -313,6 +313,12 @@ o comando sai `1`. Com `--fontes` apontando para a saída de `esteira.dossie --j
 confere se a citação bate com o material que você recebeu — porque lente que não recebeu a fonte
 tende a inventar uma.
 
+**A `evidencia` aceita `arquivo:linha` ou `arquivo:inicio-fim`.** A faixa vale quando contém alguma
+linha que o extrator colheu, o que resolve o caso comum: você vê a tag `<h1>` ocupando cinco linhas
+no HTML e cita as cinco, enquanto o extrator colheu só a linha do texto. As duas apontam para o
+mesmo lugar. O que continua recusado é citação que não aponta para nada do material — arquivo que
+não existe, ou linha fora de tudo que foi entregue.
+
 Não é burocracia: é a única coisa que separa um achado de uma opinião bem escrita. Se você escrever
 o relatório sem passar por aqui, nada no repositório impede que um diagnóstico inventado entre nele.
 

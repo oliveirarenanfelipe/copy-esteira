@@ -148,9 +148,49 @@ def validar(achado, fontes_validas=None):
         return False, "confianca fora de %s" % (CONFIANCAS,)
     if fontes_validas is not None:
         alvo = str(achado.evidencia).split()[0].strip(".,;")
-        if alvo not in fontes_validas:
+        if not _bate_com_fonte(alvo, fontes_validas):
             return False, "evidencia nao bate com o material: %s" % alvo
     return True, ""
+
+
+_FAIXA = re.compile(r"^(.*):(\d+)\s*[-–]\s*(\d+)$")
+
+
+def _bate_com_fonte(alvo, fontes):
+    """A citacao aponta para algo que a lente realmente recebeu?
+
+    🔴 FAIXA DE LINHAS CONTA, e recusa-la era falso positivo.
+
+    Medido com um agente cego usando a ferramenta para valer: ele citou
+    `index.html:465-469`, que e' a tag `<h1>` inteira no HTML e CONTEM a
+    linha `467` que o extrator colheu. O validador recusou 4 de 5 achados
+    verdadeiros, e ele teve de abrir o `dossie.json` para caçar qual linha
+    dentro da tag o extrator reconhece.
+
+    A citacao dele estava certa: apontava para o lugar exato. O que estava
+    errado era exigir a MESMA granularidade que o extrator usou. Gate que
+    reprova achado verdadeiro ensina a pessoa a contornar o gate.
+
+    Continua recusando o que nao aponta para lugar nenhum, que e' o ponto.
+    """
+    if alvo in fontes:
+        return True
+    m = _FAIXA.match(alvo)
+    if not m:
+        return False
+    arquivo, ini, fim = m.group(1), int(m.group(2)), int(m.group(3))
+    if ini > fim:
+        ini, fim = fim, ini
+    for f in fontes:
+        if not f.startswith(arquivo + ":"):
+            continue
+        try:
+            linha = int(f.rsplit(":", 1)[1])
+        except (IndexError, ValueError):
+            continue
+        if ini <= linha <= fim:
+            return True
+    return False
 
 
 def consolidar(achados, inaplicaveis, grupos_esperados=2, fontes=None):
