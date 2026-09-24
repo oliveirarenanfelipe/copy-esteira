@@ -1487,6 +1487,156 @@ def test_o_leitor_DECLARA_que_nao_calcula_visibilidade_CSS(tmp_path):
         "a promessa grande demais voltou")
 
 
+def test_as_dez_perguntas_reconhecem_a_FAMILIA_das_palavras():
+    """MUTACAO: tirar um `\\w*` de qualquer prefixo abaixo derruba isto.
+
+    🔴 Prefixo truncado dentro de grupo fechado por `\\b` nao casa nada.
+
+    `depoiment` foi escrito para pegar depoimento e depoimentos. O grupo fecha
+    com `)\\b`, e em "depoimento" vem um `o` logo depois — sem fronteira, sem
+    casamento. O termo so casaria a string `depoiment`, que nao e' palavra em
+    portugues. A pista estava morta desde o dia em que foi escrita.
+
+    Medido no corpus de vendas, e nao era teorico: `depoiment` aparece como
+    palavra em 4 das 10 pecas, `devolv` em 3, `parcelad` em 1. Uma pagina COM
+    politica de devolucao era marcada como "e se nao der certo: sem resposta",
+    e o gate acusava a pagina por uma falta que era do medidor.
+
+    Este teste guarda COMPORTAMENTO, e nao a forma do regex: se alguem
+    reescrever o padrao de outro jeito e continuar reconhecendo estas frases,
+    o teste passa e esta certo em passar.
+    """
+    from esteira import leitor
+    controle = [
+        ("7 por que confiar", "Veja os depoimentos de quem ja comprou."),
+        ("7 por que confiar", "Um depoimento real de cliente."),
+        ("7 por que confiar", "Sou engenheiro eletricista registrado."),
+        ("7 por que confiar", "A engenheira responsavel assina o projeto."),
+        ("7 por que confiar", "Formado pela universidade federal."),
+        ("8 e se nao der certo", "Devolvemos o seu dinheiro em 7 dias."),
+        ("8 e se nao der certo", "Voce pode devolver sem explicar nada."),
+        ("5 quanto custa", "Pode ser parcelado em 12 vezes."),
+        ("5 quanto custa", "Entrada parcelada no cartao."),
+    ]
+    padroes = dict(leitor._AS_DEZ_C)
+    for pergunta, frase in controle:
+        assert padroes[pergunta].search(frase), (
+            "[%s] nao reconhece %r. Prefixo truncado morto?"
+            % (pergunta, frase))
+
+    # 🔴 E O LADO QUE NAO PODE CASAR, que e' metade do trabalho.
+    # Consertar `engenheir` criou um falso positivo na hora: o padrao passou a
+    # casar "projetos elaborados por engenheiros habilitados", que e' mencao
+    # generica e nao credencial de quem vende. Medido na copy de controle: 1
+    # de 6 pecas ruins virou "tem prova social". Cobertura sem precisao e'
+    # alarme falso, e alarme falso ensina a ignorar a linha.
+    nao_pode = [
+        ("7 por que confiar", "projetos elaborados por engenheiros habilitados"),
+        ("7 por que confiar", "o engenheiro do cliente pediu o memorial"),
+    ]
+    for pergunta, frase in nao_pode:
+        m = padroes[pergunta].search(frase)
+        assert not m, (
+            "[%s] casou %r em %r, e isso nao e' credencial de quem vende"
+            % (pergunta, m.group(0) if m else "", frase))
+
+
+def test_prova_social_que_nao_diz_a_palavra_depoimento():
+    """MUTACAO: tirar as estrelas ou o "o que estao dizendo" derruba isto.
+
+    O caso que abriu a pendencia: uma pagina de vendas real trazia tres
+    depoimentos com nome, cidade e cinco estrelas, e a pergunta 7 saia "sem
+    evidencia no texto visivel". Isso e' falso, e falso negativo nao aparece
+    como erro — aparece como pagina ruim. O gate acusa a pagina por uma falta
+    que e' do medidor.
+
+    As duas pistas entraram MEDIDAS: acham na pagina que tem depoimento, dao
+    0 de 6 de falso positivo na copy de controle, e as 10 pecas do corpus de
+    vendas continuam 10 de 10.
+    """
+    from esteira import leitor
+    pad = dict(leitor._AS_DEZ_C)["7 por que confiar"]
+
+    for frase in ('<div class="stars">★★★★★</div>',
+                  "O que estao dizendo",
+                  "O que estão dizendo",
+                  "Veja o que nossos alunos acham"):
+        assert pad.search(frase), "nao reconhece prova social em %r" % frase
+
+    # e o que foi DESCARTADO na medicao continua fora: `\\w+ que usou` casava
+    # "o profissional que usa raramente tem problema", que e' promessa de
+    # beneficio e nao prova de que alguem usou
+    generica = "o profissional que usa raramente tem problema"
+    m = pad.search(generica)
+    assert not m, (
+        "casou %r em promessa generica de beneficio" % (m.group(0) if m else ""))
+
+
+def test_NENHUMA_pista_do_leitor_comeca_no_MEIO_de_um_numero():
+    """MUTACAO: tirar `pista_inteira` do `ler()` derruba isto.
+
+    🔴 E' o conserto de CLASSE, e ele existe porque eu fiz o pontual primeiro.
+
+    Os padroes escrevem `\\d+`, que nao inclui o ponto do milhar, entao o
+    casamento comeca no meio do numero. Medido no corpus de vendas e numa
+    pagina real, TRES padroes diferentes com o mesmo defeito:
+
+        "90.000 alunos"  virava  "000 alunos"
+        "1.023 alunos"   virava  "023 alunos"
+        "R$37"           virava  "R$3"
+
+    Eu achei o do preco, consertei SO ele alargando aquele `\\d`, e os outros
+    dois seguiram errados porque ninguem olhou. Catalogar defeito para cacar um
+    a um e' o habito errado.
+
+    Este teste nao guarda um caso: guarda a propriedade, varrendo TODOS os
+    padroes de `_AS_DEZ_C`. Pergunta nova que alguem acrescentar amanha ja
+    nasce coberta.
+    """
+    from esteira import leitor
+    controles = [
+        "Ja somos 90.000 alunos formados no Brasil inteiro.",
+        "Foram 1.023 clientes em 2 anos de estrada.",
+        "O kit completo sai por R$1.997 a vista, hoje.",
+        "Sao 12.000 profissionais dentro da comunidade.",
+        "Voce recebe 1.500 modelos prontos para usar.",
+        "Em 15 dias voce ja esta cobrando outro preco.",
+    ]
+    for texto in controles:
+        for nome, rx in leitor._AS_DEZ_C:
+            for m in rx.finditer(texto):
+                pista = leitor.pista_inteira(texto, m.start(), m.group(0))
+                comeco = m.start() - (len(pista) - len(m.group(0)))
+                assert comeco == 0 or not texto[comeco - 1].isdigit(), (
+                    "[%s] a pista %r comeca no meio de um numero em %r"
+                    % (nome, pista, texto))
+
+
+def test_o_LER_usa_mesmo_a_pista_inteira_e_nao_so_a_define(tmp_path):
+    """MUTACAO: tirar a chamada de `pista_inteira` de dentro do `ler()`.
+
+    🔴 ESTE TESTE EXISTE PORQUE O DE CIMA NAO BASTAVA, e eu so descobri
+    rodando a mutacao.
+
+    O teste anterior chama `pista_inteira` DIRETAMENTE. Ele prova que a funcao
+    esta certa, e nao que alguem a chama — entao a mutacao que arrancava a
+    chamada de dentro do `ler()` deixava a suite inteira VERDE. Funcao correta
+    e desligada e' no orfao, e teste que so exercita a funcao e' o orfao com
+    teste em volta.
+
+    Aqui o caminho e o de verdade: arquivo no disco, `ler()`, e a pista que sai.
+    """
+    alvo = tmp_path / "p.html"
+    alvo.write_text("<p>Ja somos 90.000 alunos formados no Brasil.</p>",
+                    encoding="utf-8")
+    r, cod = leitor.ler(str(alvo))
+    assert cod == OK
+    confiar = [a for nome, a in r["respostas"] if nome.startswith("7 ")]
+    assert confiar and confiar[0], r["respostas"]
+    assert confiar[0][0] == "90.000 alunos", (
+        "a pista saiu cortada pelo caminho real: %r" % (confiar[0][0],))
+
+
 def test_a_pista_do_preco_nao_sai_cortada(tmp_path):
     """MUTACAO: voltar o padrao para `R\\$\\s*\\d` derruba isto.
 

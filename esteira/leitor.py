@@ -20,10 +20,8 @@ Facil de ler, e nao diz o que a empresa faz. Nenhum ajuste de limiar de
 legibilidade acharia esse defeito, porque legibilidade mede a FORMA da frase e
 nao o que ela informa. Uma frase curta, direta e vazia pontua bem.
 
-🔴 O QUE "FRIO" QUER DIZER, E E' A TRAVA DESTA PECA
-----------------------------------------------------
-🔴 O QUE "VISIVEL" QUER DIZER AQUI, E O QUE ELE NAO QUER DIZER
----------------------------------------------------------------
+🔴 O QUE "FRIO" E "VISIVEL" QUEREM DIZER AQUI, E O QUE NAO QUEREM
+-------------------------------------------------------------------
 Esta peca dizia "le SO o texto visivel", e a frase era grande demais para o
 que ela faz. Ela tira comentario, `<style>`, `<script>` e nome de componente.
 Ela NAO calcula visibilidade CSS, e nao tem como: sem renderizar a pagina,
@@ -116,21 +114,62 @@ AS_DEZ = [
      # E numero cortado le como fato: "R$3" nao e' um preco aproximado, e'
      # outro preco.
      r"(R\$\s*[\d.,]+|\b(gr[aá]tis|gratuito|sem custo|de gra[cç]a|investimento "
-     r"(?:de|[eé])|por apenas|valor (?:de|[eé])|\d+\s*x\s*de|parcelad)\b)"),
+     r"(?:de|[eé])|por apenas|valor (?:de|[eé])|\d+\s*x\s*de|parcelad\w*)\b)"),
 
     ("6 quanto tempo leva",
      r"\b(em \d+\s*(?:dias?|semanas?|meses|horas?|minutos?)|"
      r"\d+\s*(?:dias?|semanas?|meses|horas?|minutos?)\s+(?:de|para|at[eé])|"
      r"dura[cç][aã]o|carga hor[aá]ria|no seu ritmo|ao vivo em)\b"),
 
+    # 🔴 `depoiment`, `engenheir` e `pel` ESTAVAM MORTOS, e eram os tres
+    # termos mais obvios desta pergunta. Ver a nota sobre prefixo truncado
+    # logo abaixo da lista.
     ("7 por que confiar",
-     r"(\b(desde \d{4}|h[aá] \d+ anos?|\d+\s*(?:anos?) de|"
-     r"\d+\s*(?:alunos?|clientes?|empresas?|profissionais?|pessoas?)|"
-     r"depoiment|quem j[aá] (?:fez|usou|passou)|resultado de|caso de|"
-     r"formad[oa] (?:em|pel)|engenheir|especialista em)\b)"),
+     # 🔴 AS ESTRELAS MORAM FORA DO GRUPO `\b(...)\b`, E O MOTIVO E' O MESMO
+     # DEFEITO, na outra ponta. `\b` e' fronteira entre caractere de palavra e
+     # o resto; a estrela nao e' caractere de palavra, entao `\b[★⭐]` nunca
+     # casa. Escrita dentro do grupo, a pista nascia morta igual ao
+     # `depoiment` — so que pelo `\b` de ABERTURA em vez do de fechamento.
+     # Medido: com ela dentro, `<div>★★★★★</div>` dava "sem evidencia".
+     r"([★⭐]{3,}|"
+     r"\b(desde \d{4}|h[aá] \d+ anos?|\d+\s*(?:anos?) de|"
+     # `mil` e `milhao` entram porque "500 mil alunos" nao casava, e e' a
+     # forma mais comum de escrever numero grande de gente em copy brasileira.
+     # Medido: sem isto, 1 das 10 pecas do corpus ficava sem resposta apesar
+     # de dizer o numero de alunos tres vezes.
+     r"\d[\d.,]*\s*(?:mil|milh[oõ][ei]?s?(?: de)?)?\s*"
+     r"(?:alunos?|clientes?|empresas?|profissionais?|pessoas?)|"
+     r"depoiment\w*|quem j[aá] (?:fez|usou|passou)|resultado de|caso de|"
+     # 🔴 PROVA SOCIAL QUE NAO DIZ A PALAVRA "DEPOIMENTO", que era o caso que
+     # abriu esta pendencia. Uma pagina de vendas real tinha tres depoimentos
+     # com nome, cidade e cinco estrelas, e esta pergunta saia "sem evidencia
+     # no texto visivel" — o que e' falso, e falso negativo nao aparece como
+     # erro: aparece como pagina ruim.
+     #
+     # As duas pistas abaixo entraram MEDIDAS, pelos tres criterios que o
+     # projeto exige de qualquer regua: acham na pagina que tem depoimento,
+     # dao 0 de 6 de falso positivo na copy de controle, e nao mexem nas 10
+     # pecas que ja estavam certas.
+     #
+     # ⚠️ Uma TERCEIRA candidata foi DESCARTADA na medicao: `\\w+ que usou`
+     # casava "o profissional que usa raramente tem problema", que e'
+     # afirmacao generica de beneficio e nao prova de que alguem usou. Cobrir
+     # mais nao vale perder a precisao.
+     r"o que (?:\w+\s+){0,3}(?:dizem|dizendo|falam|falando|acham|achou)|"
+     # 🔴 `engenheir\w*` SOZINHO E' FALSO POSITIVO, e eu o criei consertando o
+     # prefixo morto. Medido na copy de controle: casou em "projetos
+     # elaborados por engenheiros habilitados", que e' mencao generica no meio
+     # de uma explicacao tecnica, e nao credencial de quem vende. A pergunta e'
+     # "por que confiar em VOCES", entao o termo so vale com marca de
+     # identidade ou de responsabilidade.
+     r"formad[oa] (?:em|pel\w*)|"
+     r"(?:sou|somos|nossos?|nossas?|equipe de|time de)\s+(?:\w+\s+){0,2}"
+     r"engenheir\w*|engenheir\w*\s+(?:respons[aá]ve|s[oó]ci|fundador|"
+     r"chef)\w*|"
+     r"especialista em)\b)"),
 
     ("8 e se nao der certo",
-     r"\b(garantia|reembolso|dinheiro de volta|devolv|cancelar quando|"
+     r"\b(garantia|reembolso|dinheiro de volta|devolv\w*|cancelar quando|"
      r"sem compromisso|sem fidelidade|teste (?:gr[aá]tis|por)|"
      r"risco zero|satisfa[cç][aã]o)\b"),
 
@@ -145,6 +184,32 @@ AS_DEZ = [
      r"respons[aá]vel t[eé]cnic)\b"),
 ]
 _AS_DEZ_C = [(nome, re.compile(pat, re.I)) for nome, pat in AS_DEZ]
+
+# 🔴 PREFIXO TRUNCADO DENTRO DE GRUPO FECHADO POR `\b` NAO CASA NADA.
+# ---------------------------------------------------------------------------
+# Os padroes acima terminam em `)\b`. Quem escreve `depoiment` esta pedindo a
+# familia da palavra — depoimento, depoimentos —, mas o `\b` exige fronteira
+# logo depois de `depoiment`, e em "depoimento" vem um `o`, que e' caractere de
+# palavra. Resultado: o termo so casaria a string `depoiment`, que nao existe
+# em portugues. A pista ficou morta desde o dia em que foi escrita.
+#
+# Medido em num caso medido, e nao era teorico:
+#
+#     `depoiment`  morto, e a palavra aparece em 4 das 10 pecas do corpus
+#     `devolv`     morto, e aparece em 3 das 10
+#     `parcelad`   morto, e aparece em 1 das 10
+#     `engenheir`  morto ("engenheiro", "engenheira")
+#     `pel`        morto, dentro de `formad[oa] (?:em|pel)` ("formado pela")
+#
+# Efeito: pagina COM politica de devolucao era marcada como "e se nao der
+# certo: sem resposta". O gate acusava a pagina por uma falta que era do
+# medidor. Falso negativo nao aparece como erro: aparece como pagina ruim.
+#
+# O conserto e' o `\w*` colado no prefixo. A GUARDA nao e' este comentario:
+# e' `test_as_dez_perguntas_reconhecem_a_familia_das_palavras`, que exercita
+# uma frase de controle por termo e quebra se alguem escrever prefixo morto
+# de novo.
+_AS_DEZ_C = list(_AS_DEZ_C)
 
 # 🔴 UM NOME PROPRIO SO E' NOME PROPRIO COM A INICIAL MAIUSCULA, e por isso
 # esta linha mora FORA do dicionario acima: la tudo compila com `re.I`, e o
@@ -206,6 +271,34 @@ def _normal(s):
     return s.lower().translate(tabela)
 
 
+def pista_inteira(texto, inicio, casado):
+    """A pista, estendida para tras enquanto o caractere anterior for numero.
+
+    🔴 CONSERTO DE CLASSE, E NAO DO CASO. Os padroes daqui escrevem `\\d+`, que
+    nao inclui o ponto do milhar. Entao o casamento comeca no MEIO do numero, e
+    a pista impressa fica:
+
+        "90.000 alunos"   virava   "000 alunos"
+        "1.023 alunos"    virava   "023 alunos"
+        "R$37"            virava   "R$3"
+
+    Tres padroes diferentes, o mesmo defeito. O primeiro que eu achei foi o do
+    preco, e eu consertei SO ele, alargando aquele `\\d` para `[\\d.,]+`. Os
+    outros dois continuaram errados porque ninguem olhou. Catalogar defeito
+    para cacar um a um e' o habito errado: a estrutura tem de garantir a
+    propriedade.
+
+    Aqui a propriedade e uma so, e vale para qualquer padrao novo que alguem
+    escreva depois: **pista nao comeca no meio de um numero**. Numero cortado
+    le como fato, e "000 alunos" nao e um numero aproximado, e' outro numero.
+    """
+    i = inicio
+    while i > 0 and (texto[i - 1].isdigit() or
+                     (texto[i - 1] in ".," and i > 1 and texto[i - 2].isdigit())):
+        i -= 1
+    return (texto[i:inicio] + casado) if i < inicio else casado
+
+
 def ler(caminho):
     """({respondidas, de, respostas}, codigo) — as dez perguntas, com fonte."""
     trechos, cod = _trechos(caminho)
@@ -218,7 +311,9 @@ def ler(caminho):
             for m in rx.finditer(t.texto):
                 if _negado(t.texto, m.start()):
                     continue
-                achou = (m.group(0).strip(), t.onde(), t.texto[:90])
+                achou = (pista_inteira(t.texto, m.start(),
+                                       m.group(0)).strip(),
+                         t.onde(), t.texto[:90])
                 break
             if achou is None and nome.startswith("10 "):
                 m = _ASSINATURA.search(t.texto)
