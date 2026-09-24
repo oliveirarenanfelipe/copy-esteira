@@ -1384,6 +1384,43 @@ def _material(*candidatos):
     return None
 
 
+def _clis():
+    """Os modulos de `esteira/` que SAO comando, descobertos e nao listados.
+
+    🔴 CONSERTO DE CLASSE. Esta lista estava escrita a mao em tres lugares, com
+    seis nomes. Quando a setima CLI nasceu — o `esteira.dossie` —, os tres
+    testes continuaram verdes sem nunca a terem tocado, porque uma lista fixa
+    so cobre o que alguem lembrou de escrever nela.
+
+    Descobrir pelo bloco `if __name__ == "__main__"` faz CLI nova nascer
+    coberta, sem depender de memoria de ninguem.
+    """
+    raiz = os.path.join(RAIZ, "esteira")
+    achados = []
+    for nome in sorted(os.listdir(raiz)):
+        if not nome.endswith(".py") or nome == "__init__.py":
+            continue
+        texto = open(os.path.join(raiz, nome), encoding="utf-8").read()
+        if '__name__ == "__main__"' in texto:
+            achados.append(nome[:-3])
+
+    # 🔴 A CASA TEM CLI QUE NAO SOBE, e cobrar documentacao dela seria cobrar
+    # o que o publicado nao tem. O `gabarito.py` e' o caso: ele carrega uma
+    # auditoria de cliente, e a D-01 proibe publicar isso.
+    # Quando o `arranjo.json` existe, esta e' a casa, e vale a lista do que
+    # SOBE. Quando nao existe, este e' o repositorio publicado, e vale tudo.
+    arranjo = os.path.join(RAIZ, "publicar", "arranjo.json")
+    if os.path.exists(arranjo):
+        try:
+            sobe = json.load(open(arranjo, encoding="utf-8"))["publicado"]
+            publicados = {os.path.basename(d)[:-3] for d in sobe.values()
+                          if d.endswith(".py")}
+            achados = [a for a in achados if a in publicados]
+        except (OSError, ValueError, KeyError):
+            pass
+    return achados
+
+
 def _comando(argumentos):
     """Roda `python -m ...` de verdade e devolve (codigo, saida)."""
     proc = subprocess.run([sys.executable, "-B", "-m"] + argumentos,
@@ -1400,7 +1437,7 @@ def test_as_seis_CLIs_respondem_como_COMANDO_e_nao_so_como_funcao():
     `modulo.main([])` DENTRO do processo, o que nao exercita `python -m` nem
     o empacotamento.
     """
-    for nome in ("porta", "projeto", "gate", "leitor", "criar", "aferir"):
+    for nome in _clis():
         cod, saida = _comando(["esteira.%s" % nome])
         assert "Traceback (most recent call last)" not in saida, (nome, saida)
         assert cod == NAO_USAR, (nome, cod)
@@ -1858,6 +1895,69 @@ def test_a_PASTA_e_o_ARQUIVO_dao_o_MESMO_veredito(tmp_path):
     assert cod_pasta == cod_arquivo, (cod_pasta, cod_arquivo)
 
 
+def test_o_dossie_ENTREGA_o_conteudo_das_lentes_a_quem_escreve(tmp_path):
+    """MUTACAO: quebrar `montar()` ou tirar o `dossie.py` derruba isto.
+
+    🔴 As oito mentes subiam no repositorio e NINGUEM as alcancava.
+    `criar.py` define `dossies()`, que monta o dossie de cada lente, e medido
+    no publicado: nenhuma CLI a chamava. Os unicos usos eram a definicao, o
+    docstring e um teste.
+
+    Efeito: o `criar` dizia quantas lentes rodaram e quais se declararam
+    inaplicaveis, e o CONTEUDO delas — a pergunta e a regua — nunca chegava a
+    quem escreve. A Camada 3, que e' justamente a parte que ajuda a escrever,
+    estava no repositorio sem porta.
+
+    Dois testes cegos passaram por isso sem ninguem ver: os agentes
+    escreveram manchetes boas e nenhum usou as lentes, porque nao tinham como.
+    """
+    from esteira import dossie
+    alvo = tmp_path / "p.html"
+    alvo.write_text(
+        "<h1>O kit que organiza o seu servico.</h1>"
+        "<p>Voce faz o servico bem feito e perde a obra no preco.</p>"
+        "<p>Sao 4 ferramentas prontas. O preco e R$37.</p>", encoding="utf-8")
+
+    dados, cod = dossie.montar(str(alvo), "pagina-de-vendas")
+    assert cod == OK, cod
+    assert dados["dossies"], "nenhuma lente chegou a quem escreve"
+
+    # cada dossie carrega o que a lente PERGUNTA e a regua dela, nao so o nome
+    for d in dados["dossies"]:
+        for campo in ("lente", "grupo", "pergunta", "regua",
+                      "quando_nao_serve", "instrucao"):
+            assert d.get(campo), "dossie de %s sem `%s`" % (d.get("lente"), campo)
+
+    # e os dois grupos aparecem, que e' a D-05
+    assert len(dados["grupos"]) == 2, dados["grupos"]
+
+    texto = dossie.impressao(dados)
+    assert "schwartz-consciencia" in texto
+    assert "regua" in texto
+
+
+def test_o_dossie_carrega_a_DECLARACAO_de_inaplicabilidade(tmp_path):
+    """D-06: a mente declara quando a propria regua nao serve, em vez de
+    forcar. Sem prova, a lente de prova tem de sair sozinha e dizer por que."""
+    from esteira import dossie
+    alvo = tmp_path / "p.html"
+    alvo.write_text("<p>Curso novo para eletricistas. O preco e R$97.</p>",
+                    encoding="utf-8")
+
+    com, _ = dossie.montar(str(alvo), "pagina-de-vendas",
+                           {"tem_prova": True, "tem_oferta": True})
+    sem, _ = dossie.montar(str(alvo), "pagina-de-vendas",
+                           {"tem_prova": False, "tem_oferta": True})
+
+    assert len(sem["dossies"]) < len(com["dossies"]), (
+        "sem prova, nenhuma lente se declarou fora")
+    assert sem["inaplicaveis"], "a declaracao da D-06 sumiu"
+    lente, grupo, motivo = sem["inaplicaveis"][0]
+    assert motivo, "declarou-se fora sem dizer por que"
+    assert motivo in dossie.impressao(sem), (
+        "o motivo nao chega em quem le")
+
+
 def test_as_DUAS_portas_mostram_as_SEIS_CLIs():
     """MUTACAO: tirar um `esteira.<peca>` do README ou do AGENTS derruba isto.
 
@@ -1881,7 +1981,7 @@ def test_as_DUAS_portas_mostram_as_SEIS_CLIs():
     for rotulo, caminho in portas:
         assert caminho, "a porta %s sumiu do repositorio" % rotulo
         texto = open(caminho, encoding="utf-8").read()
-        for nome in ("porta", "projeto", "gate", "leitor", "criar", "aferir"):
+        for nome in _clis():
             if "esteira.%s" % nome not in texto:
                 faltando.append("%s nao cita `esteira.%s`" % (rotulo, nome))
     assert not faltando, "porta que esconde pec<caminho local>  " + "\n  ".join(faltando)

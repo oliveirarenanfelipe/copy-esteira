@@ -128,20 +128,27 @@ python -m esteira.gate ./lp --peca pagina-de-vendas --saida ./saida
 # 3. a compreensão, que os passos 1 e 2 não medem
 python -m esteira.leitor ./lp
 
-# 4. escreva as candidatas num JSON, onde você quiser. O nome não importa,
-#    o caminho é o que você passar no passo 5. O molde está em
+# 4. o que cada mente pergunta sobre ESTE material, para você escrever melhor
+python -m esteira.dossie ./lp --peca pagina-de-vendas
+
+# 5. escreva as candidatas num JSON, onde você quiser. O nome não importa,
+#    o caminho é o que você passar no passo 6. O molde está em
 #    `exemplos/candidatas.json`, e só `texto` é obrigatório
 
-# 5. a copy nova, vetada pelos MESMOS gates do passo 2
+# 6. a copy nova, vetada pelos MESMOS gates do passo 2
 python -m esteira.criar ./candidatas.json --peca pagina-de-vendas --saida ./saida
 
-# 6. leia os códigos de saída antes de escrever o relatório
+# 7. leia os códigos de saída antes de escrever o relatório
 ```
 
-O passo 4 é a parte que esta ferramenta não faz por você, e é uma decisão em vez de uma falta: o
+O **passo 4** é o que as oito mentes têm a dizer sobre o seu material: cada lente entrega a pergunta
+que ela faz e a régua que ela aplica, mais as que se declaram inaplicáveis ao seu caso. É insumo
+para escrever, e não veredito — nenhuma lente reprova nada.
+
+O **passo 5** é a parte que esta ferramenta não faz por você, e é uma decisão em vez de uma falta: o
 veto é aritmética, e aritmética não escreve. Quem escreve propõe, quem veta é código.
 
-O mínimo que o passo 5 aceita é isto, com `molde`, `lente` e `contexto` opcionais:
+O mínimo que o passo 6 aceita é isto, com `molde`, `lente` e `contexto` opcionais:
 
 ```json
 {"candidatas": [{"texto": "a manchete que você quer testar"}]}

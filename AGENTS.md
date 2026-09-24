@@ -277,13 +277,27 @@ python -m esteira.gate ./lp --peca pagina-de-vendas --saida ./saida
 # 4. a compreensão, que os passos 2 e 3 não medem
 python -m esteira.leitor ./lp
 
-# 5. a copy nova, e ela passa pelos MESMOS gates do passo 3.
+# 5. o que cada uma das oito mentes pergunta sobre ESTE material.
+#    Leia antes de escrever: é o insumo da Camada 3, e não um veredito.
+python -m esteira.dossie ./lp --peca pagina-de-vendas
+
+# 6. a copy nova, e ela passa pelos MESMOS gates do passo 3.
 #    Você escreve as candidatas num JSON; quem veta é o código.
 #    O molde está em `exemplos/candidatas.json`.
 python -m esteira.criar ./candidatas.json --peca pagina-de-vendas --saida ./saida
 
-# 6. leia os códigos de saída antes de escrever o relatório
+# 7. leia os códigos de saída antes de escrever o relatório
 ```
+
+🔴 **Não pule o passo 5 e não escreva do seu genérico.** As oito lentes vêm de escolas de escrita
+diferentes e cada uma pergunta uma coisa que as outras não perguntam — em que nível de consciência
+o leitor chega, se a alegação carrega número, se aquilo soa como gente falando. Sem elas você vai
+escrever a manchete que qualquer modelo escreveria, e é justamente isso que este repositório existe
+para não deixar passar como trabalho.
+
+Cada lente também declara quando **não** serve ao seu caso, em vez de forçar a régua dela. Essa
+declaração sai na mesma saída, e ela é informação: dizer "aqui não se aplica" é mais honesto que
+produzir um achado morno.
 
 No relatório, para cada achado: **o valor medido, o limiar que o julgou, e de onde veio o
 texto.** Achado sem evidência é recusado pela própria esteira na Camada 3 — não o
