@@ -1887,6 +1887,33 @@ def test_as_DUAS_portas_mostram_as_SEIS_CLIs():
     assert not faltando, "porta que esconde pec<caminho local>  " + "\n  ".join(faltando)
 
 
+def test_o_README_lista_TODOS_os_tipos_de_peca_do_registro():
+    """MUTACAO: tirar um tipo da tabela do README derruba isto.
+
+    🔴 Achado por um agente cego que so podia ler o README, proibido de abrir
+    o `AGENTS.md` e o codigo. Ele CHEGOU na copy nova, mas relatou que teve de
+    **adivinhar** o `--peca`, porque o README nao listava os tipos em lugar
+    nenhum. Medido: dos 7 do registro, 4 nao apareciam nem uma vez —
+    `pagina-de-obrigado`, `pagina-institucional`, `anuncio` e `mensagem`.
+
+    Todo comando que mede exige `--peca`, e o tipo errado muda o veredito. Uma
+    porta que exige um valor e nao diz quais existem empurra a pessoa para o
+    chute — e o chute aqui nao da erro, da o numero de outra regua.
+
+    O teste le os tipos do PROPRIO `reguas.json`: tipo novo registrado amanha
+    ja nasce cobrado no README, sem ninguem precisar lembrar.
+    """
+    caminho = _material("README.md", "publicar/README.md")
+    texto = open(caminho, encoding="utf-8").read()
+    from esteira.gate import carregar_reguas as _reguas
+    reguas = _reguas()
+    assert reguas, "sem registro para comparar"
+    faltando = [t for t in sorted(reguas.get("pecas", {}))
+                if t not in texto]
+    assert not faltando, (
+        "o README exige `--peca` e nao lista: %s" % ", ".join(faltando))
+
+
 def test_o_README_mostra_o_caminho_INTEIRO_e_nao_so_a_auditoria():
     """MUTACAO: tirar o passo do `criar` do roteiro do README derruba isto.
 

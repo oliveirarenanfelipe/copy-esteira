@@ -84,6 +84,31 @@ executa nada:
 python -m esteira.porta "audita a copy da minha página de vendas em ./lp e me propõe manchete nova"
 ```
 
+### Os sete tipos de peça, e como escolher o seu
+
+Todo comando que mede exige `--peca`, porque a régua de uma página de vendas não serve para uma
+mensagem de WhatsApp. Se você errar o tipo, o veredito muda.
+
+| `--peca` | quando usar | mídia |
+|---|---|---|
+| `pagina-de-vendas` | a página que **é** a oferta: tem preço, checkout, prova | página |
+| `pagina-de-captura` | troca um material por um contato, sem preço | página |
+| `pagina-de-obrigado` | o que aparece depois do cadastro ou da compra | página |
+| `pagina-institucional` | quem somos, serviços, home da empresa | página |
+| `anuncio` | criativo ou roteiro de anúncio | texto |
+| `email` | um e-mail ou boletim, um por arquivo | texto |
+| `mensagem` | WhatsApp, Telegram, mensagem de grupo | texto |
+
+Esqueceu a lista? Rode o comando sem `--peca` e ele imprime os tipos:
+
+```bash
+python -m esteira.gate
+```
+
+A coluna **mídia** muda o que é cobrado. Peça de `página` responde também por medição instalada,
+recurso de terceiro e link que não resolve. Peça de `texto` não, porque um roteiro em `.txt` não
+tem pixel dentro dele, e cobrar isso dele seria reprovar por uma falta impossível de suprir.
+
 ### O roteiro, na ordem, e o que cada passo responde
 
 ```bash
@@ -96,7 +121,9 @@ python -m esteira.gate ./lp --peca pagina-de-vendas --saida ./saida
 # 3. a compreensão, que os passos 1 e 2 não medem
 python -m esteira.leitor ./lp
 
-# 4. escreva as candidatas num JSON. O molde está em `exemplos/candidatas.json`
+# 4. escreva as candidatas num JSON, onde você quiser. O nome não importa,
+#    o caminho é o que você passar no passo 5. O molde está em
+#    `exemplos/candidatas.json`, e só `texto` é obrigatório
 
 # 5. a copy nova, vetada pelos MESMOS gates do passo 2
 python -m esteira.criar ./candidatas.json --peca pagina-de-vendas --saida ./saida
@@ -113,7 +140,10 @@ O mínimo que o passo 5 aceita é isto, com `molde`, `lente` e `contexto` opcion
 {"candidatas": [{"texto": "a manchete que você quer testar"}]}
 ```
 
-### Duas coisas que surpreendem na primeira vez
+### Três coisas que surpreendem na primeira vez
+
+Só `gate` e `criar` gravam arquivo, e só quando você passa `--saida`. O `projeto` e o `leitor`
+imprimem na tela e não deixam nada em disco, porque eles relatam e não produzem peça.
 
 O `criar` sai **1** quando alguma candidata é vetada, mesmo havendo aprovadas. Não é erro: é o lote
 tendo copy reprovada dentro. As aprovadas ficam em `saida/copy-nova.txt`, que é o arquivo que você
@@ -373,4 +403,5 @@ trinta e cinco pontos de desvio, e reprova as três candidatas — inclusive as 
 relatório, vê tudo vermelho e desiste. Não por defeito do motor: por régua ruim que o produto a
 obrigou a fabricar.
 
-Então os números sobem prontos, e a ferramenta de refazer a conta com o seu corpus sobe junto.
+Então os números sobem prontos, e a ferramenta de refazer a conta com o seu corpus sobe junto: é o
+`python -m esteira.aferir`, da seção "Como encher com o seu corpus" acima.
