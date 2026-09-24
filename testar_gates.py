@@ -1924,8 +1924,13 @@ def test_o_README_mostra_o_caminho_INTEIRO_e_nao_so_a_auditoria():
     """
     caminho = _material("README.md", "publicar/README.md")
     texto = open(caminho, encoding="utf-8").read()
-    bloco = re.search(r"Como usar, do come(?:ç|c)o ao fim(.*?)\n## ",
-                      texto, re.S)
+    # 🔴 ANCORA NO TITULO, e nao em qualquer mencao ao nome da secao.
+    # A primeira versao casava `Como usar, do comeco ao fim` em qualquer lugar,
+    # e quebrou no minuto em que eu citei a secao na ABERTURA do README: o
+    # `.*?` passou a medir o bloco errado, e o teste acusou falta de um comando
+    # que estava la. Ancora fraca acusa o texto certo pelo motivo errado.
+    bloco = re.search(r"^## Como usar, do come(?:ç|c)o ao fim(.*?)\n## ",
+                      texto, re.S | re.M)
     assert bloco, "o README perdeu a secao de como usar"
     corpo = bloco.group(1)
     for passo in ("esteira.porta", "esteira.projeto", "esteira.gate",

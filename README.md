@@ -11,9 +11,16 @@ python -m esteira.leitor ./minha-pagina.html
 python -m esteira.porta "audita a copy da minha página de vendas em ./lp"
 ```
 
+O `--peca` acima é só o exemplo de um dos sete tipos. Eles estão listados em "Os sete tipos de
+peça", mais abaixo, com quando usar cada um — e o tipo errado não dá erro, dá o número de outra
+régua.
+
+O passo a passo completo, do clone até a copy nova, está em "Como usar, do começo ao fim". Este
+arquivo basta sozinho.
+
 Se você chegou aqui com um agente de código junto, mande ele ler o `AGENTS.md` da raiz antes de
-qualquer coisa. Ele diz quais comandos existem e, mais importante, o que o agente não deve fazer —
-sendo o primeiro item reescrever à mão um medidor que já está pronto e testado.
+qualquer coisa. Ele repete os comandos daqui e acrescenta o que o agente **não** deve fazer, sendo
+o primeiro item reescrever à mão um medidor que já está pronto e testado.
 
 ---
 
